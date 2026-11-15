@@ -1,24 +1,20 @@
-# JARVIS Android — hybrid assistant
+# JARVIS Android — starter prototype
 
-This repository contains the first native Android prototype for the JARVIS project.
+Native Kotlin + Jetpack Compose Android application scaffold.
 
-## Current prototype
-- Native Kotlin + Jetpack Compose Android app.
-- Speech input through Android's speech recognition service.
-- Spoken responses through Android Text-to-Speech.
-- Basic chat interface.
-- GitHub Actions workflow to build and upload a debug APK.
+## Current prototype capabilities
+- Chat-style interface
+- Android speech recognition intent (uses an installed recognition service)
+- Android Text-to-Speech replies
+- GitHub Actions workflow to build and upload a debug APK
 
-## Planned hybrid architecture
-1. **Online brain:** authenticated HTTPS requests to a configurable AI backend for advanced reasoning.
-2. **Offline brain:** on-device model runtime, selected after checking the phone's RAM/storage and model compatibility.
-3. **Router:** choose online reasoning when available and local fallback when offline.
-4. **Android tools:** explicit, permission-gated actions using Android APIs and intents.
-5. **Memory:** user-controlled local preferences and conversation history.
-6. **Updates:** versioned releases and an in-app update flow after signing/release infrastructure is configured.
-
-## Important status
-The AI provider and local model are **not connected yet**. The prototype does not silently control the phone. Sensitive actions must request Android permissions and user confirmation.
+## Not connected yet
+- Online AI provider/backend (requires a secure backend and user-supplied provider credentials)
+- Offline on-device language model (device RAM/storage/model compatibility must be checked)
+- Android device actions beyond standard intents and permission-gated APIs
+- Signed release APK and in-app update mechanism
 
 ## Build
-Run `gradle assembleDebug` with JDK 17 and Android SDK platform 36 installed. GitHub Actions runs this build on pushes to `main` and manual workflow dispatches.
+Run `gradle assembleDebug` with JDK 17 and Android SDK installed, or use the included GitHub Actions workflow after the source is committed to `main`.
+
+This is a development prototype, not a finished JARVIS assistant. Never place API keys in the Android app source or Git repository; use a secure backend.
