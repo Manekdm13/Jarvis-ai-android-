@@ -64,9 +64,15 @@ class MainActivity : ComponentActivity() {
 @Composable
 private fun JarvisApp(onSpeak: (String) -> Unit) {
     val context = LocalContext.current
+    val memory = remember(context) { ConversationMemory(context.applicationContext) }
     var input by remember { mutableStateOf("") }
-    var messages by remember {
-        mutableStateOf(listOf("JARVIS: Online. I can now handle a starter set of phone commands."))
+    var messages by remember(memory) {
+        val restored = memory.load()
+        mutableStateOf(
+            restored.ifEmpty {
+                listOf("JARVIS: Online. I can now handle a starter set of phone commands.")
+            }
+        )
     }
 
     val voiceLauncher = rememberLauncherForActivityResult(
@@ -83,7 +89,9 @@ private fun JarvisApp(onSpeak: (String) -> Unit) {
         if (question.isEmpty()) return
         val reply = executePhoneCommand(context, question)
             ?: "I received: $question. That needs the online AI brain, which is not connected yet."
-        messages = messages + "YOU: $question" + "JARVIS: $reply"
+        val updatedMessages = (messages + "YOU: $question" + "JARVIS: $reply").takeLast(100)
+        messages = updatedMessages
+        memory.save(updatedMessages)
         input = ""
         onSpeak(reply)
     }
@@ -95,7 +103,7 @@ private fun JarvisApp(onSpeak: (String) -> Unit) {
                 verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
                 Text("J.A.R.V.I.S", style = MaterialTheme.typography.headlineLarge)
-                Text("Personal Android assistant • Phone actions prototype")
+                Text("Personal Android assistant • Phone actions + private local memory")
                 Card(shape = RoundedCornerShape(18.dp), modifier = Modifier.weight(1f).fillMaxWidth()) {
                     LazyColumn(
                         modifier = Modifier.fillMaxSize().padding(14.dp),
