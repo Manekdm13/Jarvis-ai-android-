@@ -75,6 +75,11 @@ private fun JarvisApp(onSpeak: (String) -> Unit) {
         )
     }
 
+    val listState = androidx.compose.foundation.lazy.rememberLazyListState()
+    LaunchedEffect(messages.size) {
+        if (messages.isNotEmpty()) listState.animateScrollToItem(messages.lastIndex)
+    }
+
     val voiceLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.StartActivityForResult()
     ) { result ->
@@ -106,6 +111,7 @@ private fun JarvisApp(onSpeak: (String) -> Unit) {
                 Text("Personal Android assistant • Phone actions + private local memory")
                 Card(shape = RoundedCornerShape(18.dp), modifier = Modifier.weight(1f).fillMaxWidth()) {
                     LazyColumn(
+                        state = listState,
                         modifier = Modifier.fillMaxSize().padding(14.dp),
                         verticalArrangement = Arrangement.spacedBy(10.dp)
                     ) {
