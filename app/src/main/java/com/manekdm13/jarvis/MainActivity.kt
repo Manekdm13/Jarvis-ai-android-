@@ -24,6 +24,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.MaterialTheme
@@ -39,18 +40,28 @@ import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 
-private data class PendingPhoneAction(val title: String, val explanation: String, val intent: Intent)
+private data class PendingPhoneAction(
+    val title: String,
+    val explanation: String,
+    val requestedCommand: String,
+    val intent: Intent
+)
 
 class MainActivity : ComponentActivity() {
     private var tts: TextToSpeech? = null
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        tts = TextToSpeech(this) { status -> if (status == TextToSpeech.SUCCESS) tts?.language = Locale.US }
+        tts = TextToSpeech(this) { status ->
+            if (status == TextToSpeech.SUCCESS) tts?.language = Locale.US
+        }
         setContent { JarvisApp(onSpeak = { speak(it) }) }
     }
+
     private fun speak(message: String) {
         tts?.speak(message, TextToSpeech.QUEUE_FLUSH, null, "jarvis_reply")
     }
+
     override fun onDestroy() {
         tts?.stop()
         tts?.shutdown()
@@ -67,142 +78,140 @@ private fun JarvisApp(onSpeak: (String) -> Unit) {
     var pendingAction by remember { mutableStateOf<PendingPhoneAction?>(null) }
     var messages by remember(memory) {
         val restored = memory.load()
-        mutableStateOf(restored.ifEmpty { listOf("JARVIS: Online. Phone actions require your approval before they run.") })
+        mutableStateOf(restored.ifEmpty {
+            listOf("JARVIS: Online. Phone actions require your approval before they run.")
+        })
     }
 
-    fun saveReply(reply: String) {
-        val updated = (messages + "JARVIS: $reply").takeLast(100)
-        messages = updated
-        memory.save(updated)
-        onSpeak(reply)
-    }
-    fun addExchange(question: String, reply: String) {
+    fun record(question: String, reply: String) {
         val updated = (messages + "YOU: $question" + "JARVIS: $reply").takeLast(100)
         messages = updated
         memory.save(updated)
         onSpeak(reply)
     }
 
-    val voiceLauncher = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
-        val spoken = result.data?.getStringArrayListExtra(RecognizerIntent.EXTRA_RESULTS)?.firstOrNull()
+    val voiceLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.StartActivityForResult()
+    ) { result ->
+        val spoken = result.data
+            ?.getStringArrayListExtra(RecognizerIntent.EXTRA_RESULTS)
+            ?.firstOrNull()
         if (!spoken.isNullOrBlank()) input = spoken
-    }
-
-    var pendingCommand by remember { mutableStateOf<String?>(null) }
-
-    fun runCommand(question: String) {
-        val reply = executePhoneCommand(context, question)
-            ?: "I received: $question. That needs the online AI brain, which is not connected yet."
-        val updatedMessages = (messages + "YOU: $question" + "JARVIS: $reply").takeLast(100)
-        messages = updatedMessages
-        memory.save(updatedMessages)
-        input = ""
-        onSpeak(reply)
-    }
-
-    fun isPhoneActionCommand(question: String): Boolean {
-        val command = question.trim().lowercase(Locale.ROOT)
-        return command == "settings" ||
-            command.startsWith("open ") ||
-            command.contains("open settings") ||
-            command.contains("wifi") || command.contains("wi-fi") ||
-            command.contains("bluetooth") ||
-            command == "camera" || command.contains("open camera") ||
-            command.contains("dialer") || command.contains("open phone") ||
-            command == "call" || command.startsWith("alarm") ||
-            command.contains("set alarm") ||
-            command.startsWith("search ") || command.startsWith("google ") ||
-            command.startsWith("navigate to ") || command.startsWith("map ")
     }
 
     fun sendMessage() {
         val question = input.trim()
         if (question.isEmpty()) return
-        if (isPhoneActionCommand(question)) pendingCommand = question
-        else runCommand(question)
+        input = ""
+        val prepared = resolvePhoneAction(context, question)
+        when {
+            prepared == null -> record(
+                question,
+                "I received: $question. That needs the online AI brain, which is not connected yet."
+            )
+            prepared.first != null -> {
+                pendingAction = prepared.first
+                record(question, "I have prepared that phone action. Please review and approve it before I proceed.")
+            }
+            else -> record(question, prepared.second)
+        }
     }
 
     MaterialTheme {
-        Surface(modifier = Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
-            Column(modifier = Modifier.fillMaxSize().padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        Surface(
+            modifier = Modifier.fillMaxSize(),
+            color = MaterialTheme.colorScheme.background
+        ) {
+            Column(
+                modifier = Modifier.fillMaxSize().padding(20.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
                 Text("J.A.R.V.I.S", style = MaterialTheme.typography.headlineLarge)
                 Text("Personal Android assistant • You control every phone action")
-                Card(shape = RoundedCornerShape(18.dp), modifier = Modifier.weight(1f).fillMaxWidth()) {
-                    LazyColumn(modifier = Modifier.fillMaxSize().padding(14.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                        items(messages) { line -> Text(line, style = MaterialTheme.typography.bodyLarge) }
-                    }
-                }
-                pendingAction?.let { action ->
-                    Card(shape = RoundedCornerShape(16.dp), modifier = Modifier.fillMaxWidth()) {
-                        Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                            Text("Approval required", style = MaterialTheme.typography.titleMedium)
-                            Text(action.title, style = MaterialTheme.typography.titleSmall)
-                            Text(action.explanation, style = MaterialTheme.typography.bodyMedium)
-                            Text("This approval is for this action only. It does not grant ongoing access.", style = MaterialTheme.typography.bodySmall)
-                            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                                Button(onClick = {
-                                    val approved = pendingAction ?: return@Button
-                                    pendingAction = null
-                                    try {
-                                        context.startActivity(approved.intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
-                                        saveReply("Approved. I opened the requested Android screen or app.")
-                                    } catch (_: Exception) {
-                                        saveReply("Android could not open that action on this device.")
-                                    }
-                                }, modifier = Modifier.weight(1f)) { Text("Approve once") }
-                                OutlinedButton(onClick = {
-                                    pendingAction = null
-                                    saveReply("Denied. I cancelled that action and did not run it.")
-                                }, modifier = Modifier.weight(1f)) { Text("Deny") }
-                            }
+                Card(
+                    shape = RoundedCornerShape(18.dp),
+                    modifier = Modifier.weight(1f).fillMaxWidth()
+                ) {
+                    LazyColumn(
+                        modifier = Modifier.fillMaxSize().padding(14.dp),
+                        verticalArrangement = Arrangement.spacedBy(10.dp)
+                    ) {
+                        items(messages) { line ->
+                            Text(line, style = MaterialTheme.typography.bodyLarge)
                         }
                     }
                 }
-                OutlinedTextField(value = input, onValueChange = { input = it }, modifier = Modifier.fillMaxWidth(), label = { Text("Message JARVIS") }, maxLines = 3)
+                OutlinedTextField(
+                    value = input,
+                    onValueChange = { input = it },
+                    modifier = Modifier.fillMaxWidth(),
+                    label = { Text("Message JARVIS") },
+                    maxLines = 3
+                )
                 Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                    Button(onClick = {
-                        val intent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
-                            putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
-                            putExtra(RecognizerIntent.EXTRA_LANGUAGE, Locale.getDefault())
-                            putExtra(RecognizerIntent.EXTRA_PROMPT, "Speak to JARVIS")
-                        }
-                        runCatching { voiceLauncher.launch(intent) }
-                    }, modifier = Modifier.weight(1f)) { Text("Speak") }
-                    Button(onClick = { sendMessage() }, modifier = Modifier.weight(1f)) { Text("Send") }
-                }
-                pendingCommand?.let { requestedAction ->
-                    androidx.compose.material3.AlertDialog(
-                        onDismissRequest = { pendingCommand = null },
-                        title = { Text("JARVIS needs your approval") },
-                        text = {
-                            Text("Allow JARVIS to perform this phone action?\\n\\n" +
-                                requestedAction + "\\n\\nNothing will happen unless you approve.")
+                    Button(
+                        onClick = {
+                            val intent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
+                                putExtra(
+                                    RecognizerIntent.EXTRA_LANGUAGE_MODEL,
+                                    RecognizerIntent.LANGUAGE_MODEL_FREE_FORM
+                                )
+                                putExtra(RecognizerIntent.EXTRA_LANGUAGE, Locale.getDefault())
+                                putExtra(RecognizerIntent.EXTRA_PROMPT, "Speak to JARVIS")
+                            }
+                            runCatching { voiceLauncher.launch(intent) }
                         },
-                        confirmButton = {
-                            Button(onClick = {
-                                pendingCommand = null
-                                runCommand(requestedAction)
-                            }) { Text("Approve") }
-                        },
-                        dismissButton = {
-                            Button(onClick = {
-                                pendingCommand = null
-                                val denied = "JARVIS: Permission denied. I did not perform: $requestedAction"
-                                val updatedMessages = (messages + "YOU: $requestedAction" + denied).takeLast(100)
-                                messages = updatedMessages
-                                memory.save(updatedMessages)
-                            }) { Text("Deny") }
-                        }
-                    )
+                        modifier = Modifier.weight(1f)
+                    ) { Text("Speak") }
+                    Button(onClick = { sendMessage() }, modifier = Modifier.weight(1f)) {
+                        Text("Send")
+                    }
                 }
                 Spacer(modifier = Modifier.height(2.dp))
             }
         }
     }
+
+    pendingAction?.let { action ->
+        AlertDialog(
+            onDismissRequest = { pendingAction = null },
+            title = { Text("JARVIS needs your approval") },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Text(action.title, style = MaterialTheme.typography.titleMedium)
+                    Text(action.explanation)
+                    Text("Command: ${action.requestedCommand}")
+                    Text("This approval applies to this action only.")
+                }
+            },
+            confirmButton = {
+                Button(onClick = {
+                    pendingAction = null
+                    try {
+                        context.startActivity(
+                            action.intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                        )
+                        record(action.requestedCommand, "Approved. I opened the requested Android screen or app.")
+                    } catch (_: Exception) {
+                        record(action.requestedCommand, "Android could not open that action on this device.")
+                    }
+                }) { Text("Approve once") }
+            },
+            dismissButton = {
+                OutlinedButton(onClick = {
+                    pendingAction = null
+                    record(action.requestedCommand, "Denied. I cancelled that action and did not run it.")
+                }) { Text("Deny") }
+            }
+        )
+    }
 }
 
-/** Prepares an action only. This function never launches an Intent. */
-private fun resolvePhoneAction(context: Context, rawCommand: String): Pair<PendingPhoneAction?, String>? {
+/** Prepares an action only. It never launches an Intent. */
+private fun resolvePhoneAction(
+    context: Context,
+    rawCommand: String
+): Pair<PendingPhoneAction?, String>? {
     val command = rawCommand.trim().lowercase(Locale.ROOT)
     val launchers = mapOf(
         "youtube" to "com.google.android.youtube",
@@ -212,27 +221,49 @@ private fun resolvePhoneAction(context: Context, rawCommand: String): Pair<Pendi
         "maps" to "com.google.android.apps.maps",
         "gmail" to "com.google.android.gm"
     )
+
     fun approval(title: String, explanation: String, intent: Intent) =
-        PendingPhoneAction(title, explanation, intent) to ""
+        PendingPhoneAction(title, explanation, rawCommand, intent) to ""
+
     if (command == "time" || command.contains("what time")) {
         return null to "It's ${SimpleDateFormat("h:mm a", Locale.getDefault()).format(Date())}."
     }
     if (command == "date" || command.contains("today's date") || command.contains("what is the date")) {
         return null to "Today is ${SimpleDateFormat("EEEE, d MMMM yyyy", Locale.getDefault()).format(Date())}."
     }
-    if (command == "settings" || command == "open settings") return approval("Open Android Settings", "JARVIS will open the system Settings screen.", Intent(Settings.ACTION_SETTINGS))
-    if (command.contains("wifi") || command.contains("wi-fi")) return approval("Open Wi-Fi settings", "You remain in control of network changes.", Intent(Settings.ACTION_WIFI_SETTINGS))
-    if (command.contains("bluetooth")) return approval("Open Bluetooth settings", "You remain in control of pairing and changes.", Intent(Settings.ACTION_BLUETOOTH_SETTINGS))
-    if (command == "camera" || command == "open camera") return approval("Open camera", "JARVIS will open the camera. It will not take a photo automatically.", Intent(MediaStore.ACTION_IMAGE_CAPTURE))
-    if (command == "call" || command.contains("open phone") || command.contains("dialer")) return approval("Open phone dialer", "JARVIS will open the dialer, not place a call.", Intent(Intent.ACTION_DIAL))
-    if (command.startsWith("set alarm") || command.startsWith("alarm")) return approval("Open alarms", "Review and confirm the alarm in the Android alarm screen.", Intent(AlarmClock.ACTION_SHOW_ALARMS))
+    if (command == "settings" || command == "open settings") {
+        return approval("Open Android Settings", "JARVIS will open the system Settings screen.", Intent(Settings.ACTION_SETTINGS))
+    }
+    if (command.contains("wifi") || command.contains("wi-fi")) {
+        return approval("Open Wi-Fi settings", "You remain in control of network changes.", Intent(Settings.ACTION_WIFI_SETTINGS))
+    }
+    if (command.contains("bluetooth")) {
+        return approval("Open Bluetooth settings", "You remain in control of pairing and changes.", Intent(Settings.ACTION_BLUETOOTH_SETTINGS))
+    }
+    if (command == "camera" || command == "open camera") {
+        return approval("Open camera", "JARVIS will open the camera. It will not take a photo automatically.", Intent(MediaStore.ACTION_IMAGE_CAPTURE))
+    }
+    if (command == "call" || command.contains("open phone") || command.contains("dialer")) {
+        return approval("Open phone dialer", "JARVIS will open the dialer, not place a call.", Intent(Intent.ACTION_DIAL))
+    }
+    if (command.startsWith("set alarm") || command.startsWith("alarm")) {
+        return approval("Open alarms", "Review and confirm the alarm in the Android alarm screen.", Intent(AlarmClock.ACTION_SHOW_ALARMS))
+    }
     if (command.startsWith("search ") || command.startsWith("google ")) {
         val query = rawCommand.substringAfter(' ').trim()
-        return approval("Search the web", "Open a browser search for: $query", Intent(Intent.ACTION_VIEW, Uri.parse("https://www.google.com/search?q=" + Uri.encode(query))))
+        return approval(
+            "Search the web",
+            "Open a browser search for: $query",
+            Intent(Intent.ACTION_VIEW, Uri.parse("https://www.google.com/search?q=" + Uri.encode(query)))
+        )
     }
     if (command.startsWith("navigate to ") || command.startsWith("map ")) {
         val destination = rawCommand.substringAfter(" to ", rawCommand.substringAfter("map ", "")).trim()
-        return approval("Open Maps", "Open Maps for: $destination", Intent(Intent.ACTION_VIEW, Uri.parse("geo:0,0?q=" + Uri.encode(destination))))
+        return approval(
+            "Open Maps",
+            "Open Maps for: $destination",
+            Intent(Intent.ACTION_VIEW, Uri.parse("geo:0,0?q=" + Uri.encode(destination)))
+        )
     }
     if (command.startsWith("open ")) {
         val requested = command.removePrefix("open ").trim()
@@ -240,7 +271,11 @@ private fun resolvePhoneAction(context: Context, rawCommand: String): Pair<Pendi
         if (packageName != null) {
             val appIntent = context.packageManager.getLaunchIntentForPackage(packageName)
                 ?: return null to "I couldn't find $requested installed on this device."
-            return approval("Open $requested", "Launch $requested. No other app data will be accessed.", appIntent)
+            return approval(
+                "Open $requested",
+                "Launch $requested. No other app data will be accessed.",
+                appIntent
+            )
         }
     }
     return null
