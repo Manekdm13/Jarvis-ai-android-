@@ -88,19 +88,38 @@ private fun JarvisApp(onSpeak: (String) -> Unit) {
         if (!spoken.isNullOrBlank()) input = spoken
     }
 
+    var pendingCommand by remember { mutableStateOf<String?>(null) }
+
+    fun runCommand(question: String) {
+        val reply = executePhoneCommand(context, question)
+            ?: "I received: $question. That needs the online AI brain, which is not connected yet."
+        val updatedMessages = (messages + "YOU: $question" + "JARVIS: $reply").takeLast(100)
+        messages = updatedMessages
+        memory.save(updatedMessages)
+        input = ""
+        onSpeak(reply)
+    }
+
+    fun isPhoneActionCommand(question: String): Boolean {
+        val command = question.trim().lowercase(Locale.ROOT)
+        return command == "settings" ||
+            command.startsWith("open ") ||
+            command.contains("open settings") ||
+            command.contains("wifi") || command.contains("wi-fi") ||
+            command.contains("bluetooth") ||
+            command == "camera" || command.contains("open camera") ||
+            command.contains("dialer") || command.contains("open phone") ||
+            command == "call" || command.startsWith("alarm") ||
+            command.contains("set alarm") ||
+            command.startsWith("search ") || command.startsWith("google ") ||
+            command.startsWith("navigate to ") || command.startsWith("map ")
+    }
+
     fun sendMessage() {
         val question = input.trim()
         if (question.isEmpty()) return
-        input = ""
-        val resolved = resolvePhoneAction(context, question)
-        when {
-            resolved == null -> addExchange(question, "I received your request. That needs the online AI brain, which is not connected yet.")
-            resolved.first == null -> addExchange(question, resolved.second)
-            else -> {
-                pendingAction = resolved.first
-                addExchange(question, "I can prepare this action, but I will not run it until you approve it below.")
-            }
-        }
+        if (isPhoneActionCommand(question)) pendingCommand = question
+        else runCommand(question)
     }
 
     MaterialTheme {
@@ -150,6 +169,31 @@ private fun JarvisApp(onSpeak: (String) -> Unit) {
                         runCatching { voiceLauncher.launch(intent) }
                     }, modifier = Modifier.weight(1f)) { Text("Speak") }
                     Button(onClick = { sendMessage() }, modifier = Modifier.weight(1f)) { Text("Send") }
+                }
+                pendingCommand?.let { requestedAction ->
+                    androidx.compose.material3.AlertDialog(
+                        onDismissRequest = { pendingCommand = null },
+                        title = { Text("JARVIS needs your approval") },
+                        text = {
+                            Text("Allow JARVIS to perform this phone action?\\n\\n" +
+                                requestedAction + "\\n\\nNothing will happen unless you approve.")
+                        },
+                        confirmButton = {
+                            Button(onClick = {
+                                pendingCommand = null
+                                runCommand(requestedAction)
+                            }) { Text("Approve") }
+                        },
+                        dismissButton = {
+                            Button(onClick = {
+                                pendingCommand = null
+                                val denied = "JARVIS: Permission denied. I did not perform: $requestedAction"
+                                val updatedMessages = (messages + "YOU: $requestedAction" + denied).takeLast(100)
+                                messages = updatedMessages
+                                memory.save(updatedMessages)
+                            }) { Text("Deny") }
+                        }
+                    )
                 }
                 Spacer(modifier = Modifier.height(2.dp))
             }
