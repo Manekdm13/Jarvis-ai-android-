@@ -1,6 +1,6 @@
 package com.manekdm13.jarvis
 
-import androidx.compose.ui.test.assertExists
+import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.onNodeWithText
 import org.junit.Rule
@@ -12,10 +12,10 @@ class JarvisLaunchTest {
 
     @Test
     fun launchShowsAssistantAndApprovalPolicy() {
-        composeRule.onNodeWithText("J.A.R.V.I.S").assertExists()
+        composeRule.onNodeWithText("J.A.R.V.I.S").assertIsDisplayed()
         composeRule.onNodeWithText("Personal Android assistant • You control every phone action")
-            .assertExists()
-        composeRule.onNodeWithText("Message JARVIS").assertExists()
-        composeRule.onNodeWithText("Send").assertExists()
+            .assertIsDisplayed()
+        composeRule.onNodeWithText("Message JARVIS").assertIsDisplayed()
+        composeRule.onNodeWithText("Send").assertIsDisplayed()
     }
 }
