@@ -31,7 +31,7 @@ test("missing and incorrect bearer tokens are rejected before provider calls", a
   let calls = 0;
   globalThis.fetch = async () => { calls++; return response({}); };
   try {
-    for (const bearer of [undefined, "wrong-token"]) {
+    for (const bearer of [null, "wrong-token"]) {
       const res = await worker.fetch(request({ message: "hello" }, bearer), env());
       assert.equal(res.status, 401);
     }
