@@ -34,6 +34,9 @@ jobs:
       - name: Type-check Cloudflare Worker
         working-directory: worker
         run: npm run typecheck
+      - name: Validate Cloudflare Worker deployment bundle
+        working-directory: worker
+        run: npx wrangler deploy --dry-run
 
   build:
     runs-on: ubuntu-24.04
