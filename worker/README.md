@@ -1,6 +1,6 @@
 # JARVIS online AI gateway
 
-This Cloudflare Worker keeps provider API keys and the app's shared gateway token off the Android APK and GitHub. Android sends chat text over HTTPS; the Worker routes ordinary conversation to Gemini first and technical prompts to OpenRouter's free-model router first, with one provider fallback.
+This Cloudflare Worker keeps provider API keys and the app's shared gateway token off the Android APK and GitHub. Android sends chat text over HTTPS. Auto mode uses Gemini/OpenRouter free-first routing with OpenAI/Claude as optional fallbacks. Dual review runs an OpenAI draft, Claude review, and OpenAI synthesis.
 
 ## Deploy from a computer
 
@@ -16,6 +16,8 @@ This Cloudflare Worker keeps provider API keys and the app's shared gateway toke
    ```sh
    npx wrangler secret put GEMINI_API_KEY
    npx wrangler secret put OPENROUTER_API_KEY
+   npx wrangler secret put OPENAI_API_KEY
+   npx wrangler secret put ANTHROPIC_API_KEY
    npx wrangler secret put JARVIS_APP_TOKEN
    ```
    Generate a unique gateway token of at least 32 characters, for example with Node.js:
@@ -31,7 +33,11 @@ This Cloudflare Worker keeps provider API keys and the app's shared gateway toke
 
 - `GEMINI_API_KEY`: Google AI Studio key. Default model: `gemini-3.8-flash`.
 - `OPENROUTER_API_KEY`: OpenRouter key. Default model: `openrouter/free`, which dynamically selects from currently available free models.
-- Technical prompts try OpenRouter first; general chat tries Gemini first. If the first configured provider fails, the other is tried once.
+- `OPENAI_API_KEY`: OpenAI API key (separate from a ChatGPT subscription); default model `gpt-4.1-mini`, configurable with `OPENAI_MODEL`.
+- `ANTHROPIC_API_KEY`: Claude API key; default model `claude-sonnet-4-5`, configurable with `ANTHROPIC_MODEL`.
+- Technical prompts try OpenRouter first; general chat tries Gemini first. Auto mode then falls back to configured OpenAI and Claude providers.
+- Dual review requires both OpenAI and Claude API keys: OpenAI drafts, Claude independently reviews and improves the draft, and OpenAI synthesizes the final answer. This makes three API calls and may incur charges from both providers.
+- OpenAI API is not this ChatGPT conversation or a ChatGPT subscription; it is a separate API integration with its own billing and limits.
 - The gateway does not silently select paid models. Free model availability and quotas are controlled by the providers and can change.
 - Gemini's free tier may use submitted prompts and responses to improve Google products. Do not send passwords, authentication codes, financial details, or other sensitive content.
 
@@ -55,4 +61,4 @@ This Cloudflare Worker keeps provider API keys and the app's shared gateway toke
 { "message": "Hello JARVIS", "history": "Recent local conversation text" }
 ```
 
-Successful responses include `reply`, `provider`, `model`, and the routing strategy. Authentication failures return HTTP 401.
+`POST /v1/chat` accepts optional `mode`: `auto`, `collaborate`, `openai`, or `claude`. Successful responses include `reply`, provider/model metadata, and the routing strategy. Authentication failures return HTTP 401.
