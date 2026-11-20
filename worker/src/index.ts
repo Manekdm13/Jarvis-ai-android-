@@ -3,6 +3,7 @@ export interface Env {
   OPENROUTER_API_KEY?: string;
   GEMINI_MODEL?: string;
   OPENROUTER_MODEL?: string;
+  JARVIS_ACCESS_TOKEN?: string;
   CHAT_LIMITER: { limit: (key: string) => Promise<{ success: boolean }> };
 }
 
@@ -12,7 +13,8 @@ type Provider = "gemini" | "openrouter";
 const cors = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Methods": "POST, OPTIONS, GET",
-  "Access-Control-Allow-Headers": "Content-Type",
+  "Access-Control-Allow-Headers": "Content-Type, Authorization",
+  "Access-Control-Max-Age": "86400",
   "Content-Type": "application/json; charset=utf-8",
   "Cache-Control": "no-store",
 };
@@ -25,10 +27,20 @@ function cleanText(value: unknown, max: number): string {
   return typeof value === "string" ? value.trim().slice(0, max) : "";
 }
 
-/** Prefer OpenRouter's changing free-model pool for code/technical tasks;
- * use Gemini for everyday conversation. Each provider is tried at most once.
- * The second provider is a real fallback, not a promise of premium-model access.
- */
+/** Compare bearer tokens without returning early on the first differing byte. */
+function tokenMatches(provided: string, expected: string): boolean {
+  const encoder = new TextEncoder();
+  const a = encoder.encode(provided);
+  const b = encoder.encode(expected);
+  let difference = a.length ^ b.length;
+  const length = Math.max(a.length, b.length);
+  for (let i = 0; i < length; i++) {
+    difference |= (a[i] ?? 0) ^ (b[i] ?? 0);
+  }
+  return difference === 0 && b.length >= 32;
+}
+
+/** Prefer OpenRouter's free-model pool for technical tasks; Gemini for general chat. */
 function providerOrder(message: string): Provider[] {
   const technical = /\b(code|coding|program|debug|compile|typescript|kotlin|java|python|sql|api|algorithm|github|script|error|stack trace|architecture)\b/i.test(message);
   return technical ? ["openrouter", "gemini"] : ["gemini", "openrouter"];
@@ -90,25 +102,48 @@ async function askOpenRouter(env: Env, system: string, prompt: string): Promise<
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
     const url = new URL(request.url);
-    if (request.method === "OPTIONS") return new Response(null, { headers: cors });
+    if (request.method === "OPTIONS") return new Response(null, { status: 204, headers: cors });
     if (request.method === "GET" && url.pathname === "/health") {
-      return json({ ok: true, service: "JARVIS AI Gateway", strategy: "task-aware free-first fallback",
-        providers: { gemini: Boolean(env.GEMINI_API_KEY), openrouter: Boolean(env.OPENROUTER_API_KEY) } });
+      return json({
+        ok: true,
+        service: "JARVIS AI Gateway",
+        strategy: "task-aware free-first fallback",
+        providers: { gemini: Boolean(env.GEMINI_API_KEY), openrouter: Boolean(env.OPENROUTER_API_KEY) },
+        authenticationConfigured: Boolean(env.JARVIS_ACCESS_TOKEN && env.JARVIS_ACCESS_TOKEN.length >= 32),
+      });
     }
     if (request.method !== "POST" || url.pathname !== "/v1/chat") {
       return json({ error: "Not found" }, 404);
+    }
+
+    const expectedToken = env.JARVIS_ACCESS_TOKEN || "";
+    const authorization = request.headers.get("Authorization") || "";
+    const providedToken = authorization.startsWith("Bearer ") ? authorization.slice(7).trim() : "";
+    if (!tokenMatches(providedToken, expectedToken)) {
+      return json({ error: "Unauthorized. Check the JARVIS gateway access token." }, 401);
     }
 
     const ip = request.headers.get("CF-Connecting-IP") || "unknown";
     const rate = await env.CHAT_LIMITER.limit(ip);
     if (!rate.success) return json({ error: "Rate limit reached. Please wait and try again." }, 429);
 
-    const length = Number(request.headers.get("Content-Length") || "0");
-    if (length > 24_000) return json({ error: "Request too large" }, 413);
+    let rawBody: string;
+    try { rawBody = await request.text(); }
+    catch { return json({ error: "Unable to read request body" }, 400); }
+    if (new TextEncoder().encode(rawBody).byteLength > 24_000) {
+      return json({ error: "Request too large" }, 413);
+    }
 
     let body: ChatRequest;
-    try { body = await request.json() as ChatRequest; }
-    catch { return json({ error: "Invalid JSON" }, 400); }
+    try {
+      const parsed: unknown = JSON.parse(rawBody);
+      if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+        return json({ error: "Request body must be a JSON object" }, 400);
+      }
+      body = parsed as ChatRequest;
+    } catch {
+      return json({ error: "Invalid JSON" }, 400);
+    }
 
     const message = cleanText(body.message, 6000);
     const history = cleanText(body.history, 12000);
