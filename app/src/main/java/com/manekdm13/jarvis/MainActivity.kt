@@ -84,6 +84,7 @@ private fun JarvisApp(onSpeak: (String) -> Unit) {
     }
     var gatewayUrl by remember { mutableStateOf(settings.getString("ai_gateway_url", "") ?: "") }
     var isThinking by remember { mutableStateOf(false) }
+    var requestsRemaining by remember { mutableIntStateOf(UsageBudget.remaining(context)) }
     val scope = rememberCoroutineScope()
     var pendingAction by remember { mutableStateOf<PendingPhoneAction?>(null) }
     var messages by remember(memory) {
@@ -167,6 +168,7 @@ private fun JarvisApp(onSpeak: (String) -> Unit) {
                     placeholder = { Text("https://your-worker.workers.dev") },
                     singleLine = true
                 )
+                Text("Free daily requests remaining: $requestsRemaining / ${UsageBudget.DAILY_FREE_REQUEST_LIMIT}")
                 if (isThinking) Text("JARVIS is thinking…", color = MaterialTheme.colorScheme.primary)
                 Card(
                     shape = RoundedCornerShape(18.dp),
@@ -208,6 +210,23 @@ private fun JarvisApp(onSpeak: (String) -> Unit) {
                         Text(if (isThinking) "Thinking…" else "Send")
                     }
                 }
+                OutlinedButton(
+                    onClick = {
+                        val task = input.trim()
+                        if (task.isNotEmpty()) {
+                            runCatching { BackgroundTaskScheduler.enqueue(context, gatewayUrl, task) }
+                                .onSuccess {
+                                    input = ""
+                                    record(task, "Task queued. Android WorkManager can continue it after you close JARVIS and will notify you when it finishes.")
+                                }
+                                .onFailure {
+                                    record(task, "I couldn't queue that task: " + (it.message ?: "check your AI gateway URL"))
+                                }
+                        }
+                    },
+                    modifier = Modifier.fillMaxWidth(),
+                    enabled = input.isNotBlank() && gatewayUrl.startsWith("https://") && !isThinking
+                ) { Text("Queue task for background") }
                 Spacer(modifier = Modifier.height(2.dp))
             }
         }
