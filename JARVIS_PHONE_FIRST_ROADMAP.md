@@ -26,44 +26,54 @@ The app is currently a small Kotlin/Jetpack Compose prototype. It has a chat scr
 - Treat wake-word detection as a separate, opt-in milestone. On Android it may require a foreground microphone service, persistent notification, battery use, and device-specific testing. Do not claim always-listening support until it is implemented and verified on a physical device.
 - Show microphone state and provide a stop/pause control.
 
-### 2. Open and control phone apps
-- Expand the current allowlisted Android-intent dispatcher.
-- Prefer public Android intents, app links, and system pickers over UI automation.
-- Accessibility automation is optional, separately disclosed, user-enabled in Android Settings, limited to explicitly supported tasks, and never used to bypass app security or captchas.
-- Keep a visible action preview and one-time approval for consequential actions.
+### 2. Full phone navigation and control
+- Make phone operation a first-class goal: JARVIS should understand multi-step requests, open the relevant app or Android screen, navigate supported interfaces, tap, scroll, type, select, and verify the visible result—similar to a person using the phone.
+- Prefer official Android APIs, public app intents/deep links, accessibility node actions, and system pickers. Use narrowly scoped AccessibilityService automation only after the owner explicitly enables it in Android Settings.
+- Provide a visible action plan for multi-step tasks, progress, a stop/pause control, and a clear result or failure explanation. Re-check screen state between steps; never assume a tap succeeded.
+- Allowlist supported actions and app workflows. Do not bypass lock screens, captchas, payment confirmations, app security, or another person's access controls. Do not perform hidden surveillance or covert recording.
+- For sensitive or irreversible steps—sending, posting, deleting, purchasing, submitting, changing security/privacy settings, or sharing personal data—show the exact target and payload and require fresh approval immediately before that step.
+- Explain that Android and individual apps may block or limit automation; unsupported actions must fail safely and offer a manual handoff rather than pretending to work.
 
-### 3. WhatsApp and Instagram assistance
+### 3. Privacy, private mode, and device security
+- Create a privacy dashboard that explains each JARVIS permission and integration, why it is needed, what data it can access, and how to pause or revoke it.
+- Offer user-approved privacy routines: hide sensitive notification previews where Android exposes the setting, review app permissions, open privacy/security settings, clear supported browser history/site data through the browser's own controls, and enable available screen-lock or app-lock options.
+- Support a JARVIS private session that can avoid saving conversation history, minimise local retention, and clearly indicate when temporary/private mode is active. Respect Android's secure storage and encryption facilities for retained data.
+- Provide guidance and supported controls for browser incognito/private tabs, app tracking/privacy settings, clipboard hygiene, backup choices, and permission reviews. Do not claim that incognito makes a user anonymous or hides activity from websites, network providers, employers, or device administrators.
+- Never silently disable security protections, install certificates, configure a VPN/proxy, change DNS, hide monitoring, or weaken device security. Any system-wide privacy/security change must be explained and separately approved.
+- Keep an auditable local activity history with a user-controlled retention/clear option; do not log passwords, OTPs, authentication tokens, or private message bodies unnecessarily.
+
+### 4. WhatsApp and Instagram assistance
 - Start with opening the requested app or conversation through supported links and Android share intents.
 - Prepare message text for user review. Do not promise generic background sending: consumer apps do not provide a universal public API for arbitrary personal-account messaging.
 - Any supported send flow must show recipient and exact message, then require immediate confirmation. Respect platform rate limits and anti-abuse controls.
 
-### 4. Selected notification access
+### 5. Selected notification access
 - Use Android's user-enabled NotificationListenerService only after a clear explanation and explicit opt-in in system settings.
 - Offer app-level allowlists and pause/revoke controls.
 - Process only selected notifications; avoid retaining notification bodies by default. Never expose OTPs, authentication codes, or sensitive previews to an external model.
 
-### 5. Files and documents
+### 6. Files and documents
 - Use Android Storage Access Framework pickers so the user selects individual files or folders.
 - Retain only user-granted URI access needed for a chosen workflow; avoid broad storage permissions.
 - Show file name, destination, and operation before writing, moving, sharing, or deleting.
 
-### 6. Scholarship applications
+### 7. Scholarship applications
 - Build a scholarship workspace for opportunity tracking, eligibility checks, deadlines, document checklists, and drafts.
 - Use browser/custom-tab navigation and supported upload pickers; do not store portal passwords.
 - Autofill only fields the user has reviewed. Never submit an application, certify declarations, pay a fee, or send personal data without a final explicit confirmation.
 - Keep application facts sourced from user-approved profile data and official scholarship requirements.
 
-### 7. Reminders and background tasks
+### 8. Reminders and background tasks
 - Use WorkManager for deferrable background work and Android notifications for results.
 - Use exact alarms only where genuinely needed and only after explaining the special access requirement.
 - Show scheduled tasks, next run time, cancellation, and execution history. Respect Android background limits and battery controls.
 
-### 8. Code improvement
+### 9. Code improvement
 - Allow JARVIS to propose code changes through a controlled development workflow: create a branch, produce a diff, run static checks/tests/build, and summarize risks.
 - Require owner approval before merge, release signing, installation, or deployment.
 - Never let a model execute arbitrary shell commands on the phone or access signing keys and repository secrets.
 
-### 9. GeoGuessr mastery and geography intelligence
+### 10. GeoGuessr mastery and geography intelligence
 - Provide a geography/GeoGuessr companion mode for screenshots or images the owner deliberately shares.
 - Analyse visible clues such as language, road signs and markings, driving side, road infrastructure, utility poles, architecture, vegetation, terrain, climate cues, and landscape.
 - Rank likely countries/regions/locations, explain the evidence and counter-evidence, and communicate uncertainty rather than pretending to know an exact spot.
@@ -91,13 +101,15 @@ These are candidate modules, not claims that the current prototype already suppo
 
 1. **Phone foundation:** verify app launch and core chat on a physical Android device; improve permission rationale/settings entry points; preserve encrypted local memory and per-action approval.
 2. **Useful low-risk actions:** app launching, selected-file import/export, local reminders, and explicit share-sheet handoff.
-3. **Conversation engine:** secure provider interface, backend-held credentials, error handling, privacy controls, and optional offline model evaluation.
-4. **Opt-in integrations:** notification listener and narrowly scoped accessibility actions, each with separate settings and tests.
-5. **Messaging and scholarship workflows:** recipient/payload preview, draft-first workflows, and final confirmation gates.
-6. **Wake word and reliability:** opt-in foreground microphone service, notification controls, battery testing, and physical-device validation.
-7. **GeoGuessr/geography module:** screenshot import, visual clue analysis, confidence-ranked explanations, training mode, and user-example validation.
-8. **Code assistant and releases:** reviewed patch pipeline, reproducible builds, signing strategy, and safe update mechanism.
-9. **Expandable modules:** prioritise additional owner-requested modules through small, independently testable releases.
+3. **Full-control foundation:** build an accessibility-based, allowlisted navigation engine with step verification, stop control, visible action history, and sensitive-action approval gates.
+4. **Privacy foundation:** add private sessions, permission dashboard, retention controls, and supported privacy-setting handoffs.
+5. **Conversation engine:** secure provider interface, backend-held credentials, error handling, privacy controls, and optional offline model evaluation.
+6. **Opt-in integrations:** notification listener and narrowly scoped accessibility actions, each with separate settings and tests.
+7. **Messaging and scholarship workflows:** recipient/payload preview, draft-first workflows, and final confirmation gates.
+8. **Wake word and reliability:** opt-in foreground microphone service, notification controls, battery testing, and physical-device validation.
+9. **GeoGuessr/geography module:** screenshot import, visual clue analysis, confidence-ranked explanations, training mode, and user-example validation.
+10. **Code assistant and releases:** reviewed patch pipeline, reproducible builds, signing strategy, and safe update mechanism.
+11. **Expandable modules:** prioritise additional owner-requested modules through small, independently testable releases.
 
 ## Definition of done
 
