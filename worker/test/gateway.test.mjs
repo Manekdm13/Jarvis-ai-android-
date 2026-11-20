@@ -92,6 +92,6 @@ test("Cloudflare rate-limit binding receives the documented key object", async (
     request({ message: "hello" }),
     env({ CHAT_LIMITER: { limit: async (options) => { received = options; return { success: false }; } } }),
   );
-  assert.deepEqual(received, { key: "unknown" });
+  assert.deepEqual(received, { key: token });
   assert.equal(res.status, 429);
 });
