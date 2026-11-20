@@ -3,7 +3,7 @@ export interface Env {
   OPENROUTER_API_KEY?: string;
   GEMINI_MODEL?: string;
   OPENROUTER_MODEL?: string;
-  JARVIS_ACCESS_TOKEN?: string;
+  JARVIS_APP_TOKEN?: string;
   CHAT_LIMITER: { limit: (options: { key: string }) => Promise<{ success: boolean }> };
 }
 
@@ -109,14 +109,14 @@ export default {
         service: "JARVIS AI Gateway",
         strategy: "task-aware free-first fallback",
         providers: { gemini: Boolean(env.GEMINI_API_KEY), openrouter: Boolean(env.OPENROUTER_API_KEY) },
-        authenticationConfigured: Boolean(env.JARVIS_ACCESS_TOKEN && env.JARVIS_ACCESS_TOKEN.length >= 32),
+        authenticationConfigured: Boolean(env.JARVIS_APP_TOKEN && env.JARVIS_APP_TOKEN.length >= 32),
       });
     }
     if (request.method !== "POST" || url.pathname !== "/v1/chat") {
       return json({ error: "Not found" }, 404);
     }
 
-    const expectedToken = env.JARVIS_ACCESS_TOKEN || "";
+    const expectedToken = env.JARVIS_APP_TOKEN || "";
     const authorization = request.headers.get("Authorization") || "";
     const providedToken = authorization.startsWith("Bearer ") ? authorization.slice(7).trim() : "";
     if (!tokenMatches(providedToken, expectedToken)) {
