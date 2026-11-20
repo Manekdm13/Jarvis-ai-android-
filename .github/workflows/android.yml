@@ -92,7 +92,10 @@ jobs:
           sudo udevadm control --reload-rules
           sudo udevadm trigger --name-match=kvm
           ls -l /dev/kvm
-          "$ANDROID_HOME/emulator/emulator" -accel-check
+          test -c /dev/kvm
+          test -r /dev/kvm
+          test -w /dev/kvm
+          id
 
       - name: Run JARVIS on Android emulator
         uses: reactivecircus/android-emulator-runner@v2
