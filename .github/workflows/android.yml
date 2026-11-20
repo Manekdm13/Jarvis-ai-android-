@@ -4,15 +4,15 @@ on:
   push:
     branches: [ "main" ]
   pull_request:
-    branches: [ "main", "feature/online-ai-brain" ]
+    branches: [ "main" ]
   workflow_dispatch:
+
+permissions:
+  contents: read
 
 concurrency:
   group: jarvis-android-ci-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
-
-permissions:
-  contents: read
 
 jobs:
   build:
@@ -40,10 +40,16 @@ jobs:
 
   emulator-smoke-test:
     runs-on: ubuntu-24.04
-    timeout-minutes: 25
+    timeout-minutes: 30
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
+      - name: Free safe-to-remove runner disk space
+        run: |
+          df -h
+          sudo rm -rf /usr/share/dotnet /opt/ghc /usr/local/share/boost /opt/microsoft
+          docker system prune --all --force --volumes || true
+          df -h
       - name: Set up JDK 17
         uses: actions/setup-java@v4
         with:
@@ -56,11 +62,15 @@ jobs:
       - name: Run JARVIS on Android emulator
         uses: reactivecircus/android-emulator-runner@v2
         with:
-          api-level: 35
+          api-level: 34
           target: google_apis
           arch: x86_64
           profile: pixel_6
-          emulator-boot-timeout: 600
-          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim
+          emulator-boot-timeout: 900
+          emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim
           disable-animations: true
-          script: timeout 12m gradle connectedDebugAndroidTest --no-daemon --stacktrace
+          verbose: true
+          script: |
+            adb devices -l
+            adb shell getprop sys.boot_completed
+            gradle connectedDebugAndroidTest --no-daemon --stacktrace
