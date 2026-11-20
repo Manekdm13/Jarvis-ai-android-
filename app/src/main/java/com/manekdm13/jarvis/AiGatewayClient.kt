@@ -5,7 +5,8 @@ import java.net.HttpURLConnection
 import java.net.URL
 
 internal object AiGatewayClient {
-    fun reply(baseUrl: String, message: String, history: String): String {
+    fun reply(baseUrl: String, token: String, message: String, history: String): String {
+        require(token.isNotBlank()) { "Enter your private gateway access token in JARVIS settings." }
         val cleanBase = baseUrl.trim().trimEnd('/')
         require(cleanBase.startsWith("https://")) { "Enter a valid HTTPS Worker URL in AI gateway URL." }
         val endpoint = if (cleanBase.endsWith("/v1/chat")) cleanBase else "$cleanBase/v1/chat"
@@ -19,6 +20,7 @@ internal object AiGatewayClient {
             readTimeout = 45_000
             doOutput = true
             setRequestProperty("Content-Type", "application/json; charset=utf-8")
+            setRequestProperty("Authorization", "Bearer $token")
         }
         try {
             connection.outputStream.use { it.write(payload.toString().toByteArray(Charsets.UTF_8)) }
