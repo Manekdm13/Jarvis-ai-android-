@@ -2,9 +2,9 @@
 
 ## Product goal
 
-Build JARVIS as a native Android assistant that runs on the owner's physical phone. GitHub Actions and emulators are development checks only; they are not the product runtime or acceptance target.
+Build JARVIS as a modular personal AI assistant that runs on the owner's physical Android phone. GitHub Actions and emulators are development checks only; they are not the product runtime or acceptance target. The capability list is an extensible roadmap, not a fixed limit: new modules can be proposed and added without restricting JARVIS to the items currently listed.
 
-The app is currently a small Kotlin/Jetpack Compose prototype. It has a chat screen, Android speech-recognition intent, Text-to-Speech, a small allowlist of Android intents gated by a one-time in-app approval, and encrypted local conversation history. It does not yet have an AI provider, wake-word service, accessibility automation, notification listener, file workflow, reminder scheduler, or release/update flow.
+The app is currently a small Kotlin/Jetpack Compose prototype. It has a chat screen, Android speech-recognition intent, Text-to-Speech, a small set of Android intents gated by one-time in-app approval, and encrypted local conversation history. It does not yet have an AI provider, wake-word service, accessibility automation, notification listener, file workflow, reminder scheduler, or release/update flow.
 
 ## Non-negotiable safety model
 
@@ -16,6 +16,7 @@ The app is currently a small Kotlin/Jetpack Compose prototype. It has a chat scr
 6. **Visible background behavior:** microphone use must have a clear opt-in, Android-required foreground-service notification where applicable, and an obvious stop control. No hidden recording.
 7. **Secrets stay out of the app:** no provider keys, GitHub tokens, passwords, or scholarship portal credentials in source code, APK assets, logs, or repository files.
 8. **Auditable changes:** code-writing features create a proposed patch/branch, run tests, show a diff, and wait for the owner's approval before merging or installing. No silent self-modification.
+9. **Modular and extensible:** features are separate modules with documented permissions, tests, and approval levels. The owner can request additional capabilities at any time; this roadmap is not a closed list.
 
 ## Capability plan
 
@@ -62,6 +63,30 @@ The app is currently a small Kotlin/Jetpack Compose prototype. It has a chat scr
 - Require owner approval before merge, release signing, installation, or deployment.
 - Never let a model execute arbitrary shell commands on the phone or access signing keys and repository secrets.
 
+### 9. GeoGuessr mastery and geography intelligence
+- Provide a geography/GeoGuessr companion mode for screenshots or images the owner deliberately shares.
+- Analyse visible clues such as language, road signs and markings, driving side, road infrastructure, utility poles, architecture, vegetation, terrain, climate cues, and landscape.
+- Rank likely countries/regions/locations, explain the evidence and counter-evidence, and communicate uncertainty rather than pretending to know an exact spot.
+- Teach regional clue patterns, generate quizzes and practice rounds, compare similar countries/regions, and maintain an optional progress log of mistakes and strengths.
+- Support map/geography learning, country and flag knowledge, capitals, regions, and spatial reasoning.
+- Keep this as an assistive coach and analysis tool. Do not secretly control the game, automate competitive gameplay, exploit the game, or bypass its rules. Physical image/screenshot analysis must be tested on actual user-provided examples.
+
+## Additional expandable modules (not a closed list)
+
+Potential future modules can include:
+- Personal knowledge base: searchable notes, documents, saved facts, and project context under user control.
+- Study and tutoring: explain topics, make flashcards, quizzes, revision schedules, and track learning progress.
+- Research assistant: compare sources, summarise papers, maintain citations, and flag uncertain claims.
+- Calendar and productivity: organise tasks, events, routines, and focus sessions with confirmation before external changes.
+- Travel and navigation: itinerary planning, translation, local phrase help, and map handoff.
+- Communication assistant: draft, summarise, and organise messages/email; require approval before sending.
+- Media and creativity: help plan, generate, edit, and organise content using explicitly connected tools.
+- Device diagnostics: battery/storage/network status where Android APIs permit, with clear explanations and no hidden collection.
+- Personal automation: user-defined routines and triggers with a visible activity log, pause switch, and per-action safety policy.
+- Smart-home and external services: only through user-connected, scoped integrations with revocable permissions.
+
+These are candidate modules, not claims that the current prototype already supports them. Add new ideas to the backlog when requested and assess feasibility, privacy, platform rules, and required permissions before implementation.
+
 ## Delivery sequence
 
 1. **Phone foundation:** verify app launch and core chat on a physical Android device; improve permission rationale/settings entry points; preserve encrypted local memory and per-action approval.
@@ -70,17 +95,19 @@ The app is currently a small Kotlin/Jetpack Compose prototype. It has a chat scr
 4. **Opt-in integrations:** notification listener and narrowly scoped accessibility actions, each with separate settings and tests.
 5. **Messaging and scholarship workflows:** recipient/payload preview, draft-first workflows, and final confirmation gates.
 6. **Wake word and reliability:** opt-in foreground microphone service, notification controls, battery testing, and physical-device validation.
-7. **Code assistant and releases:** reviewed patch pipeline, reproducible builds, signing strategy, and safe update mechanism.
+7. **GeoGuessr/geography module:** screenshot import, visual clue analysis, confidence-ranked explanations, training mode, and user-example validation.
+8. **Code assistant and releases:** reviewed patch pipeline, reproducible builds, signing strategy, and safe update mechanism.
+9. **Expandable modules:** prioritise additional owner-requested modules through small, independently testable releases.
 
 ## Definition of done
 
 A feature is not complete because it compiles or passes an emulator test. It must:
 - build successfully in CI;
 - have relevant automated tests;
-- be installed and exercised on the target physical Android phone;
+- be installed and exercised on the target physical Android phone (or validated with real user-provided content for non-device visual modules);
 - request only the permissions it needs;
 - demonstrate denial/cancellation behavior;
-- document device/Android-version limitations; and
+- document device/Android-version and third-party service limitations; and
 - never claim a capability that has not been verified.
 
 ## Current blockers / owner actions
