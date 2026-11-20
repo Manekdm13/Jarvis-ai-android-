@@ -40,6 +40,7 @@ import kotlinx.coroutines.withContext
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.text.input.PasswordVisualTransformation
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -83,6 +84,7 @@ private fun JarvisApp(onSpeak: (String) -> Unit) {
         context.getSharedPreferences("jarvis_settings", Context.MODE_PRIVATE)
     }
     var gatewayUrl by remember { mutableStateOf(settings.getString("ai_gateway_url", "") ?: "") }
+    var gatewayToken by remember { mutableStateOf(SecureTokenStore.load(context)) }
     var isThinking by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
     var pendingAction by remember { mutableStateOf<PendingPhoneAction?>(null) }
@@ -133,7 +135,7 @@ private fun JarvisApp(onSpeak: (String) -> Unit) {
                     val history = messages.takeLast(20).joinToString("\n")
                     scope.launch {
                         val answer = withContext(Dispatchers.IO) {
-                            runCatching { AiGatewayClient.reply(gatewayUrl, question, history) }
+                            runCatching { AiGatewayClient.reply(gatewayUrl, gatewayToken, question, history) }
                         }
                         isThinking = false
                         record(question, answer.getOrElse { error ->
@@ -166,6 +168,15 @@ private fun JarvisApp(onSpeak: (String) -> Unit) {
                     label = { Text("AI gateway URL (Cloudflare Worker)") },
                     placeholder = { Text("https://your-worker.workers.dev") },
                     singleLine = true
+                )
+                OutlinedTextField(
+                    value = gatewayToken,
+                    onValueChange = { value -> gatewayToken = value; SecureTokenStore.save(context, value) },
+                    modifier = Modifier.fillMaxWidth(),
+                    label = { Text("Private gateway access token") },
+                    placeholder = { Text("Paste your JARVIS token here") },
+                    singleLine = true,
+                    visualTransformation = PasswordVisualTransformation()
                 )
                 if (isThinking) Text("JARVIS is thinking…", color = MaterialTheme.colorScheme.primary)
                 Card(
