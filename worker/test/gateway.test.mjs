@@ -5,7 +5,7 @@ import worker from "../src/index.ts";
 const token = "a".repeat(64);
 const limiter = { limit: async () => ({ success: true }) };
 const env = (extra = {}) => ({
-  JARVIS_ACCESS_TOKEN: token,
+  JARVIS_APP_TOKEN: token,
   GEMINI_API_KEY: "test-gemini-key",
   OPENROUTER_API_KEY: "test-openrouter-key",
   CHAT_LIMITER: limiter,
