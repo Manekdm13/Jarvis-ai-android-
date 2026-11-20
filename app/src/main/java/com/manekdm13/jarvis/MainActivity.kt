@@ -1,6 +1,8 @@
 package com.manekdm13.jarvis
 
 import android.content.Context
+import android.accessibilityservice.AccessibilityServiceInfo
+import android.view.accessibility.AccessibilityManager
 import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
@@ -75,6 +77,12 @@ private fun JarvisApp(onSpeak: (String) -> Unit) {
     val context = LocalContext.current
     val memory = remember(context) { ConversationMemory(context.applicationContext) }
     var input by remember { mutableStateOf("") }
+    var accessibilityRefresh by remember { mutableIntStateOf(0) }
+    val accessibilityEnabled = remember(accessibilityRefresh) {
+        val manager = context.getSystemService(Context.ACCESSIBILITY_SERVICE) as AccessibilityManager
+        manager.getEnabledAccessibilityServiceList(AccessibilityServiceInfo.FEEDBACK_ALL_MASK)
+            .any { it.resolveInfo.serviceInfo.packageName == context.packageName && it.resolveInfo.serviceInfo.name == JarvisAccessibilityService::class.java.name }
+    }
     var pendingAction by remember { mutableStateOf<PendingPhoneAction?>(null) }
     var messages by remember(memory) {
         val restored = memory.load()
@@ -133,6 +141,29 @@ private fun JarvisApp(onSpeak: (String) -> Unit) {
             ) {
                 Text("J.A.R.V.I.S", style = MaterialTheme.typography.headlineLarge)
                 Text("Personal Android assistant • You control every phone action")
+                Card(modifier = Modifier.fillMaxWidth()) {
+                    Column(
+                        modifier = Modifier.padding(12.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Text("Phone-control permission", style = MaterialTheme.typography.titleMedium)
+                        Text(
+                            if (accessibilityEnabled) {
+                                "JARVIS Accessibility is enabled. This prototype does not yet perform screen taps, read screen text, or automate apps."
+                            } else {
+                                "Not enabled. This optional service is currently a foundation only; it does not read screen content or perform actions."
+                            }
+                        )
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            Button(onClick = {
+                                context.startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS))
+                            }) { Text("Accessibility settings") }
+                            OutlinedButton(onClick = { accessibilityRefresh++ }) {
+                                Text("Refresh")
+                            }
+                        }
+                    }
+                }
                 Card(
                     shape = RoundedCornerShape(18.dp),
                     modifier = Modifier.weight(1f).fillMaxWidth()
