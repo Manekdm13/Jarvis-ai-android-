@@ -95,3 +95,52 @@ test("Cloudflare rate-limit binding receives the documented key object", async (
   assert.deepEqual(received, { key: token });
   assert.equal(res.status, 429);
 });
+
+test("Claude-only mode calls Anthropic and returns its response", async () => {
+  const original = globalThis.fetch;
+  let target = "";
+  globalThis.fetch = async (url) => {
+    target = String(url);
+    return response({ model: "claude-test", content: [{ type: "text", text: "Claude reply" }] });
+  };
+  try {
+    const res = await worker.fetch(request({ message: "hello", mode: "claude" }), env({ ANTHROPIC_API_KEY: "test-claude" }));
+    const data = await res.json();
+    assert.equal(res.status, 200);
+    assert.equal(data.provider, "claude");
+    assert.equal(data.reply, "Claude reply");
+    assert.match(target, /api.anthropic.com/);
+  } finally { globalThis.fetch = original; }
+});
+
+test("dual review runs OpenAI draft, Claude review, then OpenAI synthesis", async () => {
+  const original = globalThis.fetch;
+  const calls = [];
+  globalThis.fetch = async (url, options) => {
+    calls.push(String(url));
+    if (String(url).includes("api.openai.com")) {
+      const body = JSON.parse(options.body);
+      return response({ model: "gpt-test", choices: [{ message: { content: body.messages[1].content.includes("Claude review") ? "Final combined answer" : "OpenAI draft" } }] });
+    }
+    return response({ model: "claude-test", content: [{ type: "text", text: "Claude review" }] });
+  };
+  try {
+    const res = await worker.fetch(request({ message: "explain this", mode: "collaborate" }), env({
+      OPENAI_API_KEY: "test-openai", ANTHROPIC_API_KEY: "test-claude",
+    }));
+    const data = await res.json();
+    assert.equal(res.status, 200);
+    assert.equal(data.provider, "collaboration");
+    assert.deepEqual(data.providers, ["openai", "claude"]);
+    assert.equal(data.reply, "Final combined answer");
+    assert.equal(calls.length, 3);
+    assert.match(calls[0], /api.openai.com/);
+    assert.match(calls[1], /api.anthropic.com/);
+    assert.match(calls[2], /api.openai.com/);
+  } finally { globalThis.fetch = original; }
+});
+
+test("dual review refuses to run unless both paid-provider keys are configured", async () => {
+  const res = await worker.fetch(request({ message: "hello", mode: "collaborate" }), env());
+  assert.equal(res.status, 503);
+});
