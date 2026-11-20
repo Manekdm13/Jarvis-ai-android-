@@ -5,7 +5,7 @@ import java.net.HttpURLConnection
 import java.net.URL
 
 internal object AiGatewayClient {
-    fun reply(baseUrl: String, token: String, message: String, history: String): String {
+    fun reply(baseUrl: String, token: String, message: String, history: String, mode: String): String {
         require(token.isNotBlank()) { "Enter your private gateway access token in JARVIS settings." }
         val cleanBase = baseUrl.trim().trimEnd('/')
         require(cleanBase.startsWith("https://")) { "Enter a valid HTTPS Worker URL in AI gateway URL." }
@@ -13,6 +13,7 @@ internal object AiGatewayClient {
         val payload = JSONObject()
             .put("message", message)
             .put("history", history.takeLast(12_000))
+            .put("mode", mode)
 
         val connection = (URL(endpoint).openConnection() as HttpURLConnection).apply {
             requestMethod = "POST"
