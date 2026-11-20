@@ -129,7 +129,11 @@ private fun JarvisApp(onSpeak: (String) -> Unit) {
             else -> {
                 if (gatewayUrl.isBlank()) {
                     record(question, "Online AI is not configured yet. Paste your Cloudflare Worker URL into the AI gateway URL field above.")
+                } else if (!UsageBudget.tryConsume(context)) {
+                    requestsRemaining = UsageBudget.remaining(context)
+                    record(question, "Today's local free-use allowance is used up. It resets tomorrow. Provider limits may be lower.")
                 } else {
+                    requestsRemaining = UsageBudget.remaining(context)
                     isThinking = true
                     val history = messages.takeLast(20).joinToString("\n")
                     scope.launch {
