@@ -1,6 +1,9 @@
 package com.manekdm13.jarvis
 
+import android.Manifest
 import android.content.Context
+import android.content.pm.PackageManager
+import android.os.Build
 import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
@@ -106,6 +109,10 @@ private fun JarvisApp(onSpeak: (String) -> Unit) {
         if (messages.isNotEmpty()) listState.animateScrollToItem(messages.lastIndex)
     }
 
+    val notificationPermissionLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { }
+
     val voiceLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.StartActivityForResult()
     ) { result ->
@@ -173,6 +180,11 @@ private fun JarvisApp(onSpeak: (String) -> Unit) {
                     singleLine = true
                 )
                 Text("Free daily requests remaining: $requestsRemaining / ${UsageBudget.DAILY_FREE_REQUEST_LIMIT}")
+                if (Build.VERSION.SDK_INT >= 33 && context.checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
+                    OutlinedButton(onClick = { notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS) }, modifier = Modifier.fillMaxWidth()) {
+                        Text("Enable JARVIS task notifications")
+                    }
+                }
                 if (isThinking) Text("JARVIS is thinking…", color = MaterialTheme.colorScheme.primary)
                 Card(
                     shape = RoundedCornerShape(18.dp),
