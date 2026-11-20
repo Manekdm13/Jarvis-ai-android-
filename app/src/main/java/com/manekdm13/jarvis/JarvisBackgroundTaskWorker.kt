@@ -21,7 +21,7 @@ internal class JarvisBackgroundTaskWorker(
         val gateway = inputData.getString(KEY_GATEWAY)?.takeIf { it.startsWith("https://") }
             ?: return Result.failure()
 
-        if (!UsageBudget.tryConsume(applicationContext)) {
+        if (runAttemptCount == 0 && !UsageBudget.tryConsume(applicationContext)) {
             postStatus("Daily free request allowance reached", "JARVIS paused this task to protect your free quota.")
             return Result.failure()
         }
