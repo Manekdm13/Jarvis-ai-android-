@@ -86,6 +86,7 @@ private fun JarvisApp(onSpeak: (String) -> Unit) {
     var gatewayUrl by remember { mutableStateOf(settings.getString("ai_gateway_url", "") ?: "") }
     var gatewayToken by remember { mutableStateOf(SecureTokenStore.load(context)) }
     var isThinking by remember { mutableStateOf(false) }
+    var aiMode by remember { mutableStateOf(settings.getString("ai_mode", "collaborate") ?: "collaborate") }
     val scope = rememberCoroutineScope()
     var pendingAction by remember { mutableStateOf<PendingPhoneAction?>(null) }
     var messages by remember(memory) {
@@ -135,7 +136,7 @@ private fun JarvisApp(onSpeak: (String) -> Unit) {
                     val history = messages.takeLast(20).joinToString("\n")
                     scope.launch {
                         val answer = withContext(Dispatchers.IO) {
-                            runCatching { AiGatewayClient.reply(gatewayUrl, gatewayToken, question, history) }
+                            runCatching { AiGatewayClient.reply(gatewayUrl, gatewayToken, question, history, aiMode) }
                         }
                         isThinking = false
                         record(question, answer.getOrElse { error ->
@@ -157,7 +158,17 @@ private fun JarvisApp(onSpeak: (String) -> Unit) {
                 verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
                 Text("J.A.R.V.I.S", style = MaterialTheme.typography.headlineLarge)
-                Text("Personal Android assistant • You control every phone action")
+                Text("Personal Android assistant • You approve every phone action")
+                Text("AI collaboration mode", style = MaterialTheme.typography.titleMedium)
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    OutlinedButton(onClick = { aiMode = "auto"; settings.edit().putString("ai_mode", aiMode).apply() }, modifier = Modifier.weight(1f)) { Text(if (aiMode == "auto") "✓ Auto" else "Auto") }
+                    OutlinedButton(onClick = { aiMode = "collaborate"; settings.edit().putString("ai_mode", aiMode).apply() }, modifier = Modifier.weight(1f)) { Text(if (aiMode == "collaborate") "✓ Dual review" else "Dual review") }
+                }
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    OutlinedButton(onClick = { aiMode = "openai"; settings.edit().putString("ai_mode", aiMode).apply() }, modifier = Modifier.weight(1f)) { Text(if (aiMode == "openai") "✓ OpenAI" else "OpenAI") }
+                    OutlinedButton(onClick = { aiMode = "claude"; settings.edit().putString("ai_mode", aiMode).apply() }, modifier = Modifier.weight(1f)) { Text(if (aiMode == "claude") "✓ Claude" else "Claude") }
+                }
+                Text(when (aiMode) { "collaborate" -> "OpenAI drafts → Claude reviews → OpenAI synthesizes"; "openai" -> "OpenAI API only"; "claude" -> "Claude API only"; else -> "Free-first automatic routing with provider fallback" }, style = MaterialTheme.typography.bodySmall)
                 OutlinedTextField(
                     value = gatewayUrl,
                     onValueChange = {
