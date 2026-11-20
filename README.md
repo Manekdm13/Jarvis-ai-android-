@@ -19,10 +19,11 @@ Native Kotlin + Jetpack Compose Android application. The intended product runs o
 - In-app scheduled reminder/background-task manager
 - End-to-end WhatsApp/Instagram message sending
 - Scholarship application workspace and browser automation
+- GeoGuessr screenshot analysis, geography training, and clue coach
 - Code-change assistant, signed release APK, and in-app update mechanism
 
-## Phone-first development plan
-See [JARVIS_PHONE_FIRST_ROADMAP.md](JARVIS_PHONE_FIRST_ROADMAP.md) for the eight-capability plan, delivery sequence, physical-device definition of done, and owner-controlled permission requirements.
+## Phone-first and expandable development plan
+See [JARVIS_PHONE_FIRST_ROADMAP.md](JARVIS_PHONE_FIRST_ROADMAP.md) for the initial nine capability areas, including GeoGuessr/geography intelligence, the extensible module backlog, delivery sequence, physical-device definition of done, and owner-controlled permission requirements. This is an expandable roadmap, not a limit on future features.
 
 ## Permission and approval policy
 - The app does not request or enable Accessibility Service access automatically.
