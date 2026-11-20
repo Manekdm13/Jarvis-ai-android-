@@ -85,3 +85,13 @@ test("preflight allows the Authorization header", async () => {
   assert.equal(res.status, 204);
   assert.equal(res.headers.get("Access-Control-Allow-Headers"), "Content-Type, Authorization");
 });
+
+test("Cloudflare rate-limit binding receives the documented key object", async () => {
+  let received;
+  const res = await worker.fetch(
+    request({ message: "hello" }),
+    env({ CHAT_LIMITER: { limit: async (options) => { received = options; return { success: false }; } } }),
+  );
+  assert.deepEqual(received, { key: "unknown" });
+  assert.equal(res.status, 429);
+});
