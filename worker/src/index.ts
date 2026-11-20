@@ -4,7 +4,7 @@ export interface Env {
   GEMINI_MODEL?: string;
   OPENROUTER_MODEL?: string;
   JARVIS_ACCESS_TOKEN?: string;
-  CHAT_LIMITER: { limit: (key: string) => Promise<{ success: boolean }> };
+  CHAT_LIMITER: { limit: (options: { key: string }) => Promise<{ success: boolean }> };
 }
 
 type ChatRequest = { message?: unknown; history?: unknown };
@@ -124,7 +124,7 @@ export default {
     }
 
     const ip = request.headers.get("CF-Connecting-IP") || "unknown";
-    const rate = await env.CHAT_LIMITER.limit(ip);
+    const rate = await env.CHAT_LIMITER.limit({ key: ip });
     if (!rate.success) return json({ error: "Rate limit reached. Please wait and try again." }, 429);
 
     let rawBody: string;
