@@ -36,7 +36,12 @@ jobs:
         run: npm run typecheck
       - name: Validate Cloudflare Worker deployment bundle
         working-directory: worker
-        run: npx wrangler deploy --dry-run
+        run: npx wrangler deploy --dry-run --outdir dist
+      - name: Upload compiled Worker bundle for release deployment
+        uses: actions/upload-artifact@v4
+        with:
+          name: jarvis-worker-bundle
+          path: worker/dist/**
 
   build:
     runs-on: ubuntu-24.04
