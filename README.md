@@ -10,8 +10,14 @@ Native Kotlin + Jetpack Compose Android application scaffold.
 - Device-local conversation history encrypted with Android Keystore
 - GitHub Actions workflow for a debug APK
 
+## Online AI brain (new integration)
+- Android chat can connect to a configurable HTTPS Cloudflare Worker gateway.
+- Gateway tries Gemini 3.8 Flash first and OpenRouter's free-model router as fallback.
+- Provider keys stay in Worker secrets, never in the APK or repository.
+- See `worker/README.md` for deployment, free-tier privacy notes, and setup.
+
 ## Not connected yet
-- Online AI provider/backend
+- Live provider credentials and deployed Worker (requires account setup)
 - Offline on-device language model
 - Accessibility-service automation and advanced Android controls
 - Signed release APK and in-app update mechanism
