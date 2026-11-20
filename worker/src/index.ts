@@ -49,10 +49,10 @@ function providerOrder(message: string): Provider[] {
 async function askGemini(env: Env, system: string, prompt: string): Promise<{ reply: string; model: string }> {
   const model = env.GEMINI_MODEL || "gemini-3.8-flash";
   const response = await fetch(
-    `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent?key=${encodeURIComponent(env.GEMINI_API_KEY || "")}`,
+    `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`,
     {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: { "Content-Type": "application/json", "x-goog-api-key": env.GEMINI_API_KEY || "" },
       body: JSON.stringify({
         systemInstruction: { parts: [{ text: system }] },
         contents: [{ role: "user", parts: [{ text: prompt }] }],
@@ -124,7 +124,7 @@ export default {
     }
 
     const ip = request.headers.get("CF-Connecting-IP") || "unknown";
-    const rate = await env.CHAT_LIMITER.limit({ key: ip });
+    const rate = await env.CHAT_LIMITER.limit({ key: providedToken });
     if (!rate.success) return json({ error: "Rate limit reached. Please wait and try again." }, 429);
 
     let rawBody: string;
