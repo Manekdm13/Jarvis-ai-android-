@@ -41,7 +41,7 @@ This Cloudflare Worker keeps provider API keys and the app's shared gateway toke
 - The gateway token is stored on Android using Android Keystore-backed AES-GCM encryption.
 - Provider API keys remain Cloudflare Worker secrets and are never sent to Android.
 - CORS explicitly allows the Authorization header; the endpoint does not use cookie authentication.
-- The Worker checks the actual request body size, not only the optional Content-Length header, and rate-limits authenticated chat requests.
+- The Worker checks the actual request body size, not only the optional Content-Length header, and rate-limits authenticated chat requests using Cloudflare's stable `ratelimits` binding.
 - Phone actions remain local to Android and require user-visible approval. The Worker cannot operate the phone.
 - The health endpoint reveals only configuration status, never secret values.
 - Treat conversation content sent to an online model as data leaving the device. Do not send secrets.
