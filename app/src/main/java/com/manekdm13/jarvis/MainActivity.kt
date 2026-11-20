@@ -33,6 +33,10 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.*
+import androidx.compose.runtime.rememberCoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
@@ -75,6 +79,12 @@ private fun JarvisApp(onSpeak: (String) -> Unit) {
     val context = LocalContext.current
     val memory = remember(context) { ConversationMemory(context.applicationContext) }
     var input by remember { mutableStateOf("") }
+    val settings = remember(context) {
+        context.getSharedPreferences("jarvis_settings", Context.MODE_PRIVATE)
+    }
+    var gatewayUrl by remember { mutableStateOf(settings.getString("ai_gateway_url", "") ?: "") }
+    var isThinking by remember { mutableStateOf(false) }
+    val scope = rememberCoroutineScope()
     var pendingAction by remember { mutableStateOf<PendingPhoneAction?>(null) }
     var messages by remember(memory) {
         val restored = memory.load()
@@ -110,15 +120,28 @@ private fun JarvisApp(onSpeak: (String) -> Unit) {
         input = ""
         val prepared = resolvePhoneAction(context, question)
         when {
-            prepared == null -> record(
-                question,
-                "I received: $question. That needs the online AI brain, which is not connected yet."
-            )
-            prepared.first != null -> {
+            prepared?.first != null -> {
                 pendingAction = prepared.first
                 record(question, "I have prepared that phone action. Please review and approve it before I proceed.")
             }
-            else -> record(question, prepared.second)
+            prepared != null -> record(question, prepared.second)
+            else -> {
+                if (gatewayUrl.isBlank()) {
+                    record(question, "Online AI is not configured yet. Paste your Cloudflare Worker URL into the AI gateway URL field above.")
+                } else {
+                    isThinking = true
+                    val history = messages.takeLast(20).joinToString("\\n")
+                    scope.launch {
+                        val answer = withContext(Dispatchers.IO) {
+                            runCatching { AiGatewayClient.reply(gatewayUrl, question, history) }
+                        }
+                        isThinking = false
+                        record(question, answer.getOrElse { error ->
+                            "I couldn't reach the AI gateway: ${error.message ?: "unknown network error"}"
+                        })
+                    }
+                }
+            }
         }
     }
 
@@ -133,6 +156,18 @@ private fun JarvisApp(onSpeak: (String) -> Unit) {
             ) {
                 Text("J.A.R.V.I.S", style = MaterialTheme.typography.headlineLarge)
                 Text("Personal Android assistant • You control every phone action")
+                OutlinedTextField(
+                    value = gatewayUrl,
+                    onValueChange = {
+                        gatewayUrl = it
+                        settings.edit().putString("ai_gateway_url", it.trim()).apply()
+                    },
+                    modifier = Modifier.fillMaxWidth(),
+                    label = { Text("AI gateway URL (Cloudflare Worker)") },
+                    placeholder = { Text("https://your-worker.workers.dev") },
+                    singleLine = true
+                )
+                if (isThinking) Text("JARVIS is thinking…", color = MaterialTheme.colorScheme.primary)
                 Card(
                     shape = RoundedCornerShape(18.dp),
                     modifier = Modifier.weight(1f).fillMaxWidth()
@@ -169,8 +204,8 @@ private fun JarvisApp(onSpeak: (String) -> Unit) {
                         },
                         modifier = Modifier.weight(1f)
                     ) { Text("Speak") }
-                    Button(onClick = { sendMessage() }, modifier = Modifier.weight(1f)) {
-                        Text("Send")
+                    Button(onClick = { sendMessage() }, modifier = Modifier.weight(1f), enabled = !isThinking) {
+                        Text(if (isThinking) "Thinking…" else "Send")
                     }
                 }
                 Spacer(modifier = Modifier.height(2.dp))
