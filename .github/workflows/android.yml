@@ -76,7 +76,7 @@ jobs:
         run: |
           df -h
           sudo rm -rf /usr/share/dotnet /opt/ghc /usr/local/share/boost /opt/microsoft
-          docker system prune --all --force --volumes || true
+          timeout 30s docker system prune --all --force --volumes || true
           df -h
       - name: Set up JDK 17
         uses: actions/setup-java@v4
