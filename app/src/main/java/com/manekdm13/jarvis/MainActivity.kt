@@ -1,6 +1,9 @@
 package com.manekdm13.jarvis
 
+import android.Manifest
 import android.content.Context
+import android.content.pm.PackageManager
+import android.os.Build
 import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
@@ -84,6 +87,7 @@ private fun JarvisApp(onSpeak: (String) -> Unit) {
     }
     var gatewayUrl by remember { mutableStateOf(settings.getString("ai_gateway_url", "") ?: "") }
     var isThinking by remember { mutableStateOf(false) }
+    var requestsRemaining by remember { mutableIntStateOf(UsageBudget.remaining(context)) }
     val scope = rememberCoroutineScope()
     var pendingAction by remember { mutableStateOf<PendingPhoneAction?>(null) }
     var messages by remember(memory) {
@@ -104,6 +108,10 @@ private fun JarvisApp(onSpeak: (String) -> Unit) {
     LaunchedEffect(messages.size) {
         if (messages.isNotEmpty()) listState.animateScrollToItem(messages.lastIndex)
     }
+
+    val notificationPermissionLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { }
 
     val voiceLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.StartActivityForResult()
@@ -128,7 +136,11 @@ private fun JarvisApp(onSpeak: (String) -> Unit) {
             else -> {
                 if (gatewayUrl.isBlank()) {
                     record(question, "Online AI is not configured yet. Paste your Cloudflare Worker URL into the AI gateway URL field above.")
+                } else if (!UsageBudget.tryConsume(context)) {
+                    requestsRemaining = UsageBudget.remaining(context)
+                    record(question, "Today's local free-use allowance is used up. It resets tomorrow. Provider limits may be lower.")
                 } else {
+                    requestsRemaining = UsageBudget.remaining(context)
                     isThinking = true
                     val history = messages.takeLast(20).joinToString("\n")
                     scope.launch {
@@ -167,6 +179,12 @@ private fun JarvisApp(onSpeak: (String) -> Unit) {
                     placeholder = { Text("https://your-worker.workers.dev") },
                     singleLine = true
                 )
+                Text("Free daily requests remaining: $requestsRemaining / ${UsageBudget.DAILY_FREE_REQUEST_LIMIT}")
+                if (Build.VERSION.SDK_INT >= 33 && context.checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
+                    OutlinedButton(onClick = { notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS) }, modifier = Modifier.fillMaxWidth()) {
+                        Text("Enable JARVIS task notifications")
+                    }
+                }
                 if (isThinking) Text("JARVIS is thinking…", color = MaterialTheme.colorScheme.primary)
                 Card(
                     shape = RoundedCornerShape(18.dp),
@@ -208,6 +226,23 @@ private fun JarvisApp(onSpeak: (String) -> Unit) {
                         Text(if (isThinking) "Thinking…" else "Send")
                     }
                 }
+                OutlinedButton(
+                    onClick = {
+                        val task = input.trim()
+                        if (task.isNotEmpty()) {
+                            runCatching { BackgroundTaskScheduler.enqueue(context, gatewayUrl, task) }
+                                .onSuccess {
+                                    input = ""
+                                    record(task, "Task queued. Android WorkManager can continue it after you close JARVIS and will notify you when it finishes.")
+                                }
+                                .onFailure {
+                                    record(task, "I couldn't queue that task: " + (it.message ?: "check your AI gateway URL"))
+                                }
+                        }
+                    },
+                    modifier = Modifier.fillMaxWidth(),
+                    enabled = input.isNotBlank() && gatewayUrl.startsWith("https://") && !isThinking
+                ) { Text("Queue task for background") }
                 Spacer(modifier = Modifier.height(2.dp))
             }
         }

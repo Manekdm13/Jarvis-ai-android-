@@ -12,9 +12,17 @@ Native Kotlin + Jetpack Compose Android application scaffold.
 
 ## Online AI brain (new integration)
 - Android chat can connect to a configurable HTTPS Cloudflare Worker gateway.
-- Gateway tries Gemini 3.8 Flash first and OpenRouter's free-model router as fallback.
+- Gateway routes technical prompts and everyday chat across Gemini and OpenRouter's free-model router, with automatic fallback.
 - Provider keys stay in Worker secrets, never in the APK or repository.
 - See `worker/README.md` for deployment, free-tier privacy notes, and setup.
+
+## Background tasks and daily free-use guard
+- The app now includes a local 40-request/day safety budget (provider quotas may be lower).
+- You can queue one AI task for Android WorkManager to process after the app is closed; it requires internet and a configured gateway.
+- Android posts a completion/failure notification when notification permission is available.
+- This is deferrable background work, not a guarantee of instant or continuous execution.
+- A true offline wake phrase such as “Hey JARVIS” is not implemented yet. It needs a dedicated local wake-word model and a user-started microphone foreground service with a persistent notification.
+- See `docs/ALWAYS_READY_AGENT.md` for the safety model and next engineering stages.
 
 ## Not connected yet
 - Live provider credentials and deployed Worker (requires account setup)
