@@ -4,7 +4,8 @@
   "scripts": {
     "deploy": "wrangler deploy",
     "dev": "wrangler dev",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "test": "node --experimental-strip-types --test"
   },
   "devDependencies": {
     "typescript": "^5.9.3",
