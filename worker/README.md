@@ -16,7 +16,7 @@ This Cloudflare Worker keeps provider API keys and the app's shared gateway toke
    ```sh
    npx wrangler secret put GEMINI_API_KEY
    npx wrangler secret put OPENROUTER_API_KEY
-   npx wrangler secret put JARVIS_ACCESS_TOKEN
+   npx wrangler secret put JARVIS_APP_TOKEN
    ```
    Generate a unique gateway token of at least 32 characters, for example with Node.js:
    ```sh
@@ -50,7 +50,7 @@ This Cloudflare Worker keeps provider API keys and the app's shared gateway toke
 
 `GET /health` returns gateway status and boolean configuration flags.
 
-`POST /v1/chat` requires `Authorization: Bearer YOUR_JARVIS_ACCESS_TOKEN` and a JSON body:
+`POST /v1/chat` requires `Authorization: Bearer YOUR_JARVIS_APP_TOKEN` and a JSON body:
 ```json
 { "message": "Hello JARVIS", "history": "Recent local conversation text" }
 ```
