@@ -7,12 +7,17 @@ on:
     branches: [ "main", "feature/online-ai-brain" ]
   workflow_dispatch:
 
+concurrency:
+  group: jarvis-android-ci-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
 permissions:
   contents: read
 
 jobs:
   build:
     runs-on: ubuntu-24.04
+    timeout-minutes: 20
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
@@ -26,7 +31,7 @@ jobs:
         with:
           gradle-version: "8.13"
       - name: Build debug APK
-        run: gradle assembleDebug
+        run: gradle assembleDebug --no-daemon --stacktrace
       - name: Upload debug APK
         uses: actions/upload-artifact@v4
         with:
@@ -35,7 +40,7 @@ jobs:
 
   emulator-smoke-test:
     runs-on: ubuntu-24.04
-    timeout-minutes: 30
+    timeout-minutes: 25
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
@@ -55,7 +60,7 @@ jobs:
           target: google_apis
           arch: x86_64
           profile: pixel_6
-          emulator-boot-timeout: 900
+          emulator-boot-timeout: 600
           emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim
           disable-animations: true
-          script: gradle connectedDebugAndroidTest
+          script: timeout 12m gradle connectedDebugAndroidTest --no-daemon --stacktrace
