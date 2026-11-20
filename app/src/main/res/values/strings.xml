@@ -1,0 +1,4 @@
+<resources>
+    <string name="app_name">JARVIS</string>
+    <string name="jarvis_accessibility_description">Optional JARVIS integration. This initial version does not read screen content or perform taps, typing, or automatic actions.</string>
+</resources>
