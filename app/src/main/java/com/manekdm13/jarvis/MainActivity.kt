@@ -130,7 +130,7 @@ private fun JarvisApp(onSpeak: (String) -> Unit) {
                     record(question, "Online AI is not configured yet. Paste your Cloudflare Worker URL into the AI gateway URL field above.")
                 } else {
                     isThinking = true
-                    val history = messages.takeLast(20).joinToString("\\n")
+                    val history = messages.takeLast(20).joinToString("\n")
                     scope.launch {
                         val answer = withContext(Dispatchers.IO) {
                             runCatching { AiGatewayClient.reply(gatewayUrl, question, history) }
