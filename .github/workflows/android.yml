@@ -112,28 +112,7 @@ jobs:
           disable-animations: true
           verbose: true
           script: |
-            set -eu
-            mkdir -p artifacts/emulator
-            collect_diagnostics() {
-              status=$?
-              echo "Collecting emulator diagnostics (test exit: ${status})"
-              timeout 10s adb devices -l > artifacts/emulator/adb-devices.txt 2>&1 || true
-              timeout 10s adb shell getprop > artifacts/emulator/getprop.txt 2>&1 || true
-              timeout 15s adb logcat -d -v threadtime > artifacts/emulator/logcat.txt 2>&1 || true
-              timeout 10s adb shell dumpsys activity activities > artifacts/emulator/activities.txt 2>&1 || true
-              find app/build/outputs -type f \( -path '*androidTest-results*' -o -path '*connected*' \) -print 2>/dev/null > artifacts/emulator/test-output-files.txt || true
-              exit "${status}"
-            }
-            trap collect_diagnostics EXIT
-            timeout 120s adb wait-for-device
-            for attempt in $(seq 1 60); do
-              booted="$(adb shell getprop sys.boot_completed 2>/dev/null | tr -d '\r' || true)"
-              if [ "${booted}" = "1" ]; then break; fi
-              sleep 5
-            done
-            test "$(adb shell getprop sys.boot_completed | tr -d '\r')" = "1"
-            adb devices -l
-            gradle connectedDebugAndroidTest --no-daemon --stacktrace --info
+            bash -lc 'set -euo pipefail; mkdir -p artifacts/emulator; timeout 120s adb wait-for-device; for attempt in $(seq 1 60); do booted="$(adb shell getprop sys.boot_completed 2>/dev/null | tr -d "\\r" || true)"; if [ "$booted" = "1" ]; then break; fi; sleep 5; done; test "$(adb shell getprop sys.boot_completed | tr -d "\\r")" = "1"; adb devices -l; gradle connectedDebugAndroidTest --no-daemon --stacktrace --info'
 
       - name: Capture runner diagnostics if emulator action failed before test script
         if: always()
