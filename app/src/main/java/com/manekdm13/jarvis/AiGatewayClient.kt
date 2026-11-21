@@ -29,8 +29,16 @@ internal object AiGatewayClient {
             val responseText = stream?.bufferedReader()?.use { it.readText() }.orEmpty()
             val response = runCatching { JSONObject(responseText) }.getOrNull()
             if (status !in 200..299) {
-                throw IllegalStateException(response?.optString("error")
-                    ?.takeIf { it.isNotBlank() } ?: "AI gateway returned HTTP $status.")
+                val messageText = response?.optString("error")?.takeIf { it.isNotBlank() }
+                    ?: "AI gateway returned HTTP $status."
+                val providerDetails = response?.optJSONArray("details")?.let { details ->
+                    (0 until details.length()).mapNotNull { index ->
+                        details.optString(index).takeIf { it.isNotBlank() }
+                    }.distinct().joinToString("; ")
+                }?.takeIf { it.isNotBlank() }
+                throw IllegalStateException(
+                    if (providerDetails != null) "$messageText ($providerDetails)" else messageText
+                )
             }
             return response?.optString("reply")?.takeIf { it.isNotBlank() }
                 ?: throw IllegalStateException("The AI provider returned an empty reply.")
