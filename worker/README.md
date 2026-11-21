@@ -14,7 +14,7 @@ You only need a Google AI Studio API key and a separate JARVIS app token to star
    ```
 3. Add the Gemini key as a Cloudflare Worker secret:
    ```sh
-   npx wrangler secret put GEMINI_API_KEY
+   npx wrangler secret put JARVIS_AI_KEY
    ```
    Paste the key only into the secure Wrangler prompt.
 4. Generate a separate random app token (at least 32 characters):

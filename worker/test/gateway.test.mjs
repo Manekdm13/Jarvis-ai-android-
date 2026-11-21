@@ -6,7 +6,7 @@ const token = "a".repeat(64);
 const limiter = { limit: async () => ({ success: true }) };
 const env = (extra = {}) => ({
   JARVIS_APP_TOKEN: token,
-  GEMINI_API_KEY: "test-gemini-key",
+  JARVIS_AI_KEY: "test-gemini-key",
   OPENROUTER_API_KEY: "test-openrouter-key",
   CHAT_LIMITER: limiter,
   ...extra,
@@ -64,7 +64,7 @@ test("Gemini-only configuration works without an OpenRouter key", async () => {
   try {
     const res = await worker.fetch(
       request({ message: "hello" }),
-      env({ OPENROUTER_API_KEY: undefined, GEMINI_API_KEY: "  \"test-gemini-\r\nkey\"  " }),
+      env({ OPENROUTER_API_KEY: undefined, JARVIS_AI_KEY: "  \"test-gemini-\r\nkey\"  " }),
     );
     const data = await res.json();
     assert.equal(res.status, 200);
@@ -98,7 +98,7 @@ test("actual oversized request bodies are rejected", async () => {
 
 test("chat fails clearly when no provider is configured", async () => {
   const res = await worker.fetch(request({ message: "hello" }), env({
-    GEMINI_API_KEY: undefined, OPENROUTER_API_KEY: undefined,
+    JARVIS_AI_KEY: undefined, OPENROUTER_API_KEY: undefined,
   }));
   assert.equal(res.status, 503);
 });

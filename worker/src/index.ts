@@ -1,5 +1,5 @@
 export interface Env {
-  GEMINI_API_KEY?: string;
+  JARVIS_AI_KEY?: string;
   OPENROUTER_API_KEY?: string;
   GEMINI_MODEL?: string;
   OPENROUTER_MODEL?: string;
@@ -57,7 +57,7 @@ async function askGemini(env: Env, system: string, prompt: string): Promise<{ re
     `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`,
     {
       method: "POST",
-      headers: { "Content-Type": "application/json", "x-goog-api-key": cleanSecret(env.GEMINI_API_KEY) },
+      headers: { "Content-Type": "application/json", "x-goog-api-key": cleanSecret(env.JARVIS_AI_KEY) },
       body: JSON.stringify({
         systemInstruction: { parts: [{ text: system }] },
         contents: [{ role: "user", parts: [{ text: prompt }] }],
@@ -118,7 +118,7 @@ export default {
         ok: true,
         service: "JARVIS AI Gateway",
         strategy: "task-aware free-first fallback",
-        providers: { gemini: Boolean(env.GEMINI_API_KEY), openrouter: Boolean(env.OPENROUTER_API_KEY) },
+        providers: { gemini: Boolean(env.JARVIS_AI_KEY), openrouter: Boolean(env.OPENROUTER_API_KEY) },
         authenticationConfigured: Boolean(env.JARVIS_APP_TOKEN && env.JARVIS_APP_TOKEN.length >= 32),
       });
     }
@@ -173,7 +173,7 @@ export default {
       "User message:\n" + message;
 
     const available: Record<Provider, boolean> = {
-      gemini: Boolean(env.GEMINI_API_KEY),
+      gemini: Boolean(env.JARVIS_AI_KEY),
       openrouter: Boolean(env.OPENROUTER_API_KEY),
     };
     const order = providerOrder(message).filter((provider) => available[provider]);
