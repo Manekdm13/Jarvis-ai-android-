@@ -52,7 +52,7 @@ function providerOrder(message: string): Provider[] {
 }
 
 async function askGemini(env: Env, system: string, prompt: string): Promise<{ reply: string; model: string }> {
-  const model = env.GEMINI_MODEL || "gemini-3.8-flash";
+  const model = env.GEMINI_MODEL || "gemini-3.1-flash-lite";
   // Gemini 3.x uses the Interactions API; generateContent is the legacy API path.
   const response = await fetch("https://generativelanguage.googleapis.com/v1beta/interactions", {
     method: "POST",
