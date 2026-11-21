@@ -1,0 +1,25 @@
+{
+  "name": "JARVIS Android + Cloudflare Worker",
+  "features": {
+    "ghcr.io/devcontainers/features/node:1": {
+      "version": "22"
+    },
+    "ghcr.io/devcontainers/features/java:1": {
+      "version": "17",
+      "installGradle": true,
+      "gradleVersion": "8.13"
+    }
+  },
+  "postCreateCommand": "bash .devcontainer/setup-android.sh",
+  "forwardPorts": [
+    8787
+  ],
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "fwcd.kotlin",
+        "redhat.java"
+      ]
+    }
+  }
+}
