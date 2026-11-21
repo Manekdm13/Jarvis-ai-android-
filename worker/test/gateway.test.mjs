@@ -52,6 +52,29 @@ test("authenticated chat returns a Gemini response and allows Authorization in C
   } finally { globalThis.fetch = original; }
 });
 
+test("Gemini-only configuration works without an OpenRouter key", async () => {
+  const original = globalThis.fetch;
+  let calledUrl = "";
+  let calledHeaders;
+  globalThis.fetch = async (url, init) => {
+    calledUrl = String(url);
+    calledHeaders = new Headers(init?.headers);
+    return response({ candidates: [{ content: { parts: [{ text: "Gemini only" }] } }] });
+  };
+  try {
+    const res = await worker.fetch(
+      request({ message: "hello" }),
+      env({ OPENROUTER_API_KEY: undefined }),
+    );
+    const data = await res.json();
+    assert.equal(res.status, 200);
+    assert.equal(data.reply, "Gemini only");
+    assert.equal(data.provider, "gemini");
+    assert.match(calledUrl, /models\/gemini-3\.8-flash:generateContent$/);
+    assert.equal(calledHeaders.get("x-goog-api-key"), "test-gemini-key");
+  } finally { globalThis.fetch = original; }
+});
+
 test("OpenRouter is tried when Gemini fails", async () => {
   const original = globalThis.fetch;
   let calls = 0;
