@@ -9,6 +9,7 @@ import android.provider.MediaStore
 import android.provider.Settings
 import android.speech.RecognizerIntent
 import android.speech.tts.TextToSpeech
+import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -39,6 +40,8 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalClipboardManager
+import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import java.text.SimpleDateFormat
@@ -78,6 +81,7 @@ class MainActivity : ComponentActivity() {
 @Composable
 private fun JarvisApp(onSpeak: (String) -> Unit) {
     val context = LocalContext.current
+    val clipboardManager = LocalClipboardManager.current
     val memory = remember(context) { ConversationMemory(context.applicationContext) }
     var input by remember { mutableStateOf("") }
     val settings = remember(context) {
@@ -194,7 +198,29 @@ private fun JarvisApp(onSpeak: (String) -> Unit) {
                         verticalArrangement = Arrangement.spacedBy(10.dp)
                     ) {
                         items(messages) { line ->
-                            Text(line, style = MaterialTheme.typography.bodyLarge)
+                            if (line.startsWith("JARVIS:")) {
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                ) {
+                                    Text(
+                                        line,
+                                        modifier = Modifier.weight(1f),
+                                        style = MaterialTheme.typography.bodyLarge
+                                    )
+                                    OutlinedButton(
+                                        onClick = {
+                                            val replyText = line.removePrefix("JARVIS:").trim()
+                                            clipboardManager.setText(AnnotatedString(replyText))
+                                            Toast.makeText(context, "JARVIS response copied", Toast.LENGTH_SHORT).show()
+                                        }
+                                    ) {
+                                        Text("Copy")
+                                    }
+                                }
+                            } else {
+                                Text(line, style = MaterialTheme.typography.bodyLarge)
+                            }
                         }
                     }
                 }
