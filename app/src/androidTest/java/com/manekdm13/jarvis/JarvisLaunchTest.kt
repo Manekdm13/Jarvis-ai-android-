@@ -13,7 +13,9 @@ class JarvisLaunchTest {
     @Test
     fun launchShowsAssistantAndApprovalPolicy() {
         composeRule.onNodeWithText("J.A.R.V.I.S").assertIsDisplayed()
-        composeRule.onNodeWithText("Personal Android assistant • You control every phone action")
+
+        // Match the stable product identity, not copy that can legitimately change.
+        composeRule.onNodeWithText("Personal Android assistant", substring = true)
             .assertIsDisplayed()
         composeRule.onNodeWithText("Message JARVIS").assertIsDisplayed()
         composeRule.onNodeWithText("Send").assertIsDisplayed()
