@@ -8,6 +8,8 @@ const env = (extra = {}) => ({
   JARVIS_APP_TOKEN: token,
   JARVIS_AI_KEY: "test-gemini-key",
   OPENROUTER_API_KEY: "test-openrouter-key",
+  GROQ_API_KEY: "test-groq-key",
+  AI: { run: async () => ({ response: "Workers AI test" }) },
   CHAT_LIMITER: limiter,
   ...extra,
 });
@@ -89,6 +91,35 @@ test("OpenRouter is tried when Gemini fails", async () => {
     assert.equal(data.provider, "openrouter");
     assert.equal(calls, 2);
   } finally { globalThis.fetch = original; }
+});
+
+
+test("Groq provider is called through its OpenAI-compatible chat endpoint", async () => {
+  const original = globalThis.fetch;
+  let calledUrl = "";
+  globalThis.fetch = async (url) => {
+    calledUrl = String(url);
+    return response({ model: "openai/gpt-oss-20b", choices: [{ message: { content: "Groq reply" } }] });
+  };
+  try {
+    const res = await worker.fetch(request({ message: "debug this code" }), env({ JARVIS_AI_KEY: undefined, OPENROUTER_API_KEY: undefined }));
+    const data = await res.json();
+    assert.equal(res.status, 200);
+    assert.equal(data.provider, "groq");
+    assert.equal(data.reply, "Groq reply");
+    assert.equal(calledUrl, "https://api.groq.com/openai/v1/chat/completions");
+  } finally { globalThis.fetch = original; }
+});
+
+test("Cloudflare Workers AI is available as a provider fallback", async () => {
+  const res = await worker.fetch(request({ message: "hello" }), env({
+    JARVIS_AI_KEY: undefined, GROQ_API_KEY: undefined, OPENROUTER_API_KEY: undefined,
+    AI: { run: async () => ({ response: "Cloudflare reply" }) },
+  }));
+  const data = await res.json();
+  assert.equal(res.status, 200);
+  assert.equal(data.provider, "workers_ai");
+  assert.equal(data.reply, "Cloudflare reply");
 });
 
 test("actual oversized request bodies are rejected", async () => {
