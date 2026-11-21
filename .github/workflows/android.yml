@@ -112,7 +112,7 @@ jobs:
           disable-animations: true
           verbose: true
           script: |
-            set -Eeuo pipefail
+            set -eu
             mkdir -p artifacts/emulator
             collect_diagnostics() {
               status=$?
