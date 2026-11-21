@@ -83,7 +83,12 @@ private fun JarvisApp(onSpeak: (String) -> Unit) {
     val settings = remember(context) {
         context.getSharedPreferences("jarvis_settings", Context.MODE_PRIVATE)
     }
-    var gatewayUrl by remember { mutableStateOf(settings.getString("ai_gateway_url", "") ?: "") }
+    var gatewayUrl by remember {
+        mutableStateOf(
+            settings.getString("ai_gateway_url", null)?.takeIf { it.isNotBlank() }
+                ?: "https://jarvis-ai-gateway.juttfaizan794.workers.dev"
+        )
+    }
     var gatewayToken by remember { mutableStateOf(SecureTokenStore.load(context)) }
     var isThinking by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
