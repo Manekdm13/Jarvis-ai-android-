@@ -2,7 +2,7 @@ name: Android debug APK and emulator tests
 
 on:
   push:
-    branches: [ "main" ]
+    branches: [ "main", "fix/jarvis-chat-gateway-ci" ]
   pull_request:
     branches: [ "main" ]
   workflow_dispatch:
