@@ -4,6 +4,7 @@ import android.content.Context
 import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
+import android.os.Build
 import android.provider.AlarmClock
 import android.provider.MediaStore
 import android.provider.Settings
@@ -95,6 +96,8 @@ private fun JarvisApp(onSpeak: (String) -> Unit) {
     }
     var gatewayToken by remember { mutableStateOf(SecureTokenStore.load(context)) }
     var isThinking by remember { mutableStateOf(false) }
+    var isCheckingUpdate by remember { mutableStateOf(false) }
+    var updateStatus by remember { mutableStateOf("") }
     val scope = rememberCoroutineScope()
     var pendingAction by remember { mutableStateOf<PendingPhoneAction?>(null) }
     var messages by remember(memory) {
@@ -167,6 +170,48 @@ private fun JarvisApp(onSpeak: (String) -> Unit) {
             ) {
                 Text("J.A.R.V.I.S", style = MaterialTheme.typography.headlineLarge)
                 Text("Personal Android assistant • You control every phone action")
+                Button(
+                    onClick = {
+                        if (!isCheckingUpdate) {
+                            isCheckingUpdate = true
+                            updateStatus = "Checking for a new JARVIS release…"
+                            scope.launch {
+                                try {
+                                    val update = AppUpdater.check()
+                                    if (update == null) {
+                                        updateStatus = "No newer published release was found."
+                                    } else if (
+                                        Build.VERSION.SDK_INT >= Build.VERSION_CODES.O &&
+                                        !context.packageManager.canRequestPackageInstalls()
+                                    ) {
+                                        updateStatus = "Allow JARVIS to install updates, then tap Check for updates again."
+                                        context.startActivity(
+                                            Intent(
+                                                Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES,
+                                                Uri.parse("package:${context.packageName}")
+                                            )
+                                        )
+                                    } else {
+                                        updateStatus = "Downloading JARVIS ${update.versionName}…"
+                                        AppUpdater.downloadAndInstall(context, update)
+                                        updateStatus = "Opening Android's installer. Confirm the update there."
+                                    }
+                                } catch (error: Exception) {
+                                    updateStatus = "Update check failed: ${error.message ?: "unknown error"}"
+                                } finally {
+                                    isCheckingUpdate = false
+                                }
+                            }
+                        }
+                    },
+                    enabled = !isCheckingUpdate,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text(if (isCheckingUpdate) "Checking…" else "Check for updates")
+                }
+                if (updateStatus.isNotBlank()) {
+                    Text(updateStatus, style = MaterialTheme.typography.bodySmall)
+                }
                 OutlinedTextField(
                     value = gatewayUrl,
                     onValueChange = {
