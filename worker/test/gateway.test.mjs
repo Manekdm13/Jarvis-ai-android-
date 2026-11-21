@@ -84,7 +84,7 @@ test("OpenRouter is tried when Gemini fails", async () => {
     ? response({ error: "temporary" }, 503)
     : response({ model: "free-test", choices: [{ message: { content: "Fallback" } }] });
   try {
-    const res = await worker.fetch(request({ message: "hello" }), env());
+    const res = await worker.fetch(request({ message: "hello" }), env({ GROQ_API_KEY: undefined, AI: undefined }));
     const data = await res.json();
     assert.equal(res.status, 200);
     assert.equal(data.reply, "Fallback");
@@ -129,7 +129,7 @@ test("actual oversized request bodies are rejected", async () => {
 
 test("chat fails clearly when no provider is configured", async () => {
   const res = await worker.fetch(request({ message: "hello" }), env({
-    JARVIS_AI_KEY: undefined, OPENROUTER_API_KEY: undefined,
+    JARVIS_AI_KEY: undefined, OPENROUTER_API_KEY: undefined, GROQ_API_KEY: undefined, AI: undefined,
   }));
   assert.equal(res.status, 503);
 });
