@@ -41,7 +41,7 @@ test("missing and incorrect bearer tokens are rejected before provider calls", a
 
 test("authenticated chat returns a Gemini response and allows Authorization in CORS", async () => {
   const original = globalThis.fetch;
-  globalThis.fetch = async () => response({ model: "gemini-3.8-flash", status: "completed", steps: [{ type: "model_output", content: [{ type: "text", text: "Hello" }] }] });
+  globalThis.fetch = async () => response({ model: "gemini-3.1-flash-lite", status: "completed", steps: [{ type: "model_output", content: [{ type: "text", text: "Hello" }] }] });
   try {
     const res = await worker.fetch(request({ message: "hello" }), env());
     const data = await res.json();
@@ -59,7 +59,7 @@ test("Gemini-only configuration works without an OpenRouter key", async () => {
   globalThis.fetch = async (url, init) => {
     calledUrl = String(url);
     calledHeaders = new Headers(init?.headers);
-    return response({ model: "gemini-3.8-flash", status: "completed", steps: [{ type: "model_output", content: [{ type: "text", text: "Gemini only" }] }] });
+    return response({ model: "gemini-3.1-flash-lite", status: "completed", steps: [{ type: "model_output", content: [{ type: "text", text: "Gemini only" }] }] });
   };
   try {
     const res = await worker.fetch(
