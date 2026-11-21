@@ -5,7 +5,6 @@ import android.content.Context
 import android.content.Intent
 import android.net.Uri
 import android.os.Environment
-import android.os.ParcelFileDescriptor
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
@@ -18,7 +17,6 @@ data class JarvisUpdate(val versionName: String, val apkUrl: String)
 object AppUpdater {
     private const val RELEASE_API =
         "https://api.github.com/repos/Manekdm13/Jarvis-ai-android-/releases/latest"
-    private const val CURRENT_VERSION = "0.1.0"
 
     suspend fun check(): JarvisUpdate? = withContext(Dispatchers.IO) {
         val connection = (URL(RELEASE_API).openConnection() as HttpURLConnection).apply {
@@ -32,16 +30,16 @@ object AppUpdater {
             if (connection.responseCode !in 200..299) return@withContext null
             val release = JSONObject(connection.inputStream.bufferedReader().use { it.readText() })
             val version = release.optString("tag_name").removePrefix("v")
-            val apkAssets = release.optJSONArray("assets") ?: return@withContext null
+            val assets = release.optJSONArray("assets") ?: return@withContext null
             var apkUrl: String? = null
-            for (index in 0 until apkAssets.length()) {
-                val asset = apkAssets.getJSONObject(index)
+            for (index in 0 until assets.length()) {
+                val asset = assets.getJSONObject(index)
                 if (asset.optString("name").endsWith(".apk", ignoreCase = true)) {
                     apkUrl = asset.optString("browser_download_url")
                     break
                 }
             }
-            if (apkUrl.isNullOrBlank() || compareVersions(version, CURRENT_VERSION) <= 0) {
+            if (apkUrl.isNullOrBlank() || compareVersions(version, BuildConfig.VERSION_NAME) <= 0) {
                 null
             } else {
                 JarvisUpdate(version, apkUrl)
@@ -65,22 +63,22 @@ object AppUpdater {
                 )
             val downloadId = manager.enqueue(request)
             var completedUri: Uri? = null
-            repeat(600) {
+            for (attempt in 0 until 600) {
                 val query = DownloadManager.Query().setFilterById(downloadId)
                 manager.query(query)?.use { cursor ->
                     if (cursor.moveToFirst()) {
                         when (cursor.getInt(cursor.getColumnIndexOrThrow(DownloadManager.COLUMN_STATUS))) {
                             DownloadManager.STATUS_SUCCESSFUL -> {
                                 completedUri = manager.getUriForDownloadedFile(downloadId)
-                                return@repeat
                             }
                             DownloadManager.STATUS_FAILED -> {
-                                throw IllegalStateException("Android download manager could not download the update.")
+                                throw IllegalStateException("Android could not download the update.")
                             }
                         }
                     }
                 }
-                if (completedUri == null) delay(500)
+                if (completedUri != null) break
+                delay(500)
             }
             val apkUri = completedUri ?: throw IllegalStateException("The update download timed out.")
             withContext(Dispatchers.Main) {
