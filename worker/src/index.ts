@@ -69,7 +69,11 @@ async function askGemini(env: Env, system: string, prompt: string): Promise<{ re
   });
   const raw = await response.text();
   let data: any = {};
+<<<<<<< HEAD
   try { data = raw ? JSON.parse(raw) : {}; } catch { /* handled below */ }
+=======
+  try { data = raw ? JSON.parse(raw) : {}; } catch { /* handled below with status and bounded body */ }
+>>>>>>> f9f521cef67d8b3787d838aeee63c864690322cb
   if (!response.ok) {
     const detail = data?.error?.message || raw.slice(0, 300);
     throw new Error(`Gemini HTTP ${response.status}${detail ? `: ${String(detail).slice(0, 400)}` : ""}`);
