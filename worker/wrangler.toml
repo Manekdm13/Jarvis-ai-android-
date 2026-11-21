@@ -1,0 +1,15 @@
+name = "jarvis-ai-gateway"
+main = "src/index.ts"
+compatibility_date = "2026-11-20"
+
+[vars]
+GEMINI_MODEL = "gemini-3.8-flash"
+OPENROUTER_MODEL = "openrouter/free"
+
+[[ratelimits]]
+name = "CHAT_LIMITER"
+namespace_id = "1001"
+
+[ratelimits.simple]
+limit = 20
+period = 60
