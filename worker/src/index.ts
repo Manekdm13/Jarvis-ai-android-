@@ -29,7 +29,7 @@ function cleanText(value: unknown, max: number): string {
 
 /** Cloudflare secrets may be pasted with a trailing newline; HTTP headers cannot contain it. */
 function cleanSecret(value?: string): string {
-  return (value || "").trim();
+  return (value || "").replace(/[\s\uFEFF]+/g, "").replace(/^(["\'])(.*)\1$/, "$2");
 }
 
 /** Compare bearer tokens without returning early on the first differing byte. */
@@ -65,7 +65,12 @@ async function askGemini(env: Env, system: string, prompt: string): Promise<{ re
       }),
     },
   );
-  if (!response.ok) throw new Error(`Gemini HTTP ${response.status}`);
+  if (!response.ok) {
+    const errorBody = await response.text();
+    let detail = "";
+    try { detail = JSON.parse(errorBody)?.error?.message || ""; } catch { /* ignore non-JSON provider errors */ }
+    throw new Error(`Gemini HTTP ${response.status}${detail ? `: ${detail.slice(0, 400)}` : ""}`);
+  }
   const data = await response.json() as any;
   const reply = data?.candidates?.[0]?.content?.parts
     ?.map((part: any) => typeof part.text === "string" ? part.text : "")
