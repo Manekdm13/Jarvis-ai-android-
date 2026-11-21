@@ -4,6 +4,11 @@
   "features": {
     "ghcr.io/devcontainers/features/node:1": {
       "version": "22"
+    },
+    "ghcr.io/devcontainers/features/java:1": {
+      "version": "none",
+      "installGradle": true,
+      "gradleVersion": "8.13"
     }
   },
   "postCreateCommand": "bash .devcontainer/setup-android.sh",
