@@ -59,8 +59,24 @@ jobs:
         uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: "8.13"
-      - name: Build debug APK
-        run: gradle assembleDebug --no-daemon --stacktrace
+      - name: Build debug APK with actionable diagnostics
+        shell: bash
+        run: |
+          set +e
+          gradle assembleDebug --no-daemon --stacktrace --info 2>&1 | tee app-build.log
+          build_status=${PIPESTATUS[0]}
+          if [ "$build_status" -ne 0 ]; then
+            echo "## Android build failure details" >> "$GITHUB_STEP_SUMMARY"
+            grep -E "e: |error:|What went wrong:|Execution failed|Unresolved reference|Could not resolve|failed to" app-build.log | tail -n 80 | tee -a "$GITHUB_STEP_SUMMARY" || true
+            exit "$build_status"
+          fi
+      - name: Upload Android build diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: jarvis-android-build-diagnostics
+          path: app-build.log
+          if-no-files-found: warn
       - name: Upload debug APK
         uses: actions/upload-artifact@v4
         with:
