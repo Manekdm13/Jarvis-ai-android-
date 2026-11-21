@@ -28,7 +28,7 @@ jobs:
       - name: Install Worker dependencies
         working-directory: worker
         run: npm install --no-package-lock
-      - name: Test Cloudflare Worker authentication and fallback
+      - name: Test Cloudflare Worker authentication and provider fallback
         working-directory: worker
         run: npm test
       - name: Type-check Cloudflare Worker
@@ -42,6 +42,7 @@ jobs:
         with:
           name: jarvis-worker-bundle
           path: worker/dist/**
+          if-no-files-found: error
 
   build:
     runs-on: ubuntu-24.04
@@ -65,10 +66,11 @@ jobs:
         with:
           name: jarvis-debug-apk
           path: app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error
 
   emulator-smoke-test:
     runs-on: ubuntu-24.04
-    timeout-minutes: 30
+    timeout-minutes: 35
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
@@ -85,7 +87,19 @@ jobs:
         uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: "8.13"
+      - name: Enable and verify KVM
+        run: |
+          sudo mkdir -p /etc/udev/rules.d
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+          ls -l /dev/kvm
+          test -c /dev/kvm
+          test -r /dev/kvm
+          test -w /dev/kvm
+
       - name: Run JARVIS on Android emulator
+        id: emulator-tests
         uses: reactivecircus/android-emulator-runner@v2
         with:
           api-level: 34
@@ -97,6 +111,47 @@ jobs:
           disable-animations: true
           verbose: true
           script: |
+            set -Eeuo pipefail
+            mkdir -p artifacts/emulator
+            collect_diagnostics() {
+              status=$?
+              echo "Collecting emulator diagnostics (test exit: ${status})"
+              adb devices -l > artifacts/emulator/adb-devices.txt 2>&1 || true
+              adb shell getprop > artifacts/emulator/getprop.txt 2>&1 || true
+              adb logcat -d -v threadtime > artifacts/emulator/logcat.txt 2>&1 || true
+              adb shell dumpsys activity activities > artifacts/emulator/activities.txt 2>&1 || true
+              find app/build/outputs -type f \\( -path '*androidTest-results*' -o -path '*connected*' \\) -print 2>/dev/null > artifacts/emulator/test-output-files.txt || true
+              exit "${status}"
+            }
+            trap collect_diagnostics EXIT
+            adb wait-for-device
+            for attempt in $(seq 1 60); do
+              booted="$(adb shell getprop sys.boot_completed 2>/dev/null | tr -d '\r' || true)"
+              if [ "${booted}" = "1" ]; then break; fi
+              sleep 5
+            done
+            test "$(adb shell getprop sys.boot_completed | tr -d '\r')" = "1"
             adb devices -l
-            adb shell getprop sys.boot_completed
-            gradle connectedDebugAndroidTest --no-daemon --stacktrace
+            gradle connectedDebugAndroidTest --no-daemon --stacktrace --info
+
+      - name: Capture runner diagnostics if emulator action failed before test script
+        if: always()
+        run: |
+          mkdir -p artifacts/emulator
+          adb devices -l > artifacts/emulator/adb-devices-poststep.txt 2>&1 || true
+          adb logcat -d -v threadtime > artifacts/emulator/logcat-poststep.txt 2>&1 || true
+          find app/build/outputs -type f -print > artifacts/emulator/build-output-files.txt 2>/dev/null || true
+          df -h > artifacts/emulator/disk-space.txt 2>&1 || true
+
+      - name: Upload emulator logs and test reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: jarvis-emulator-diagnostics
+          path: |
+            artifacts/emulator/**
+            app/build/reports/androidTests/**
+            app/build/outputs/androidTest-results/**
+            app/build/test-results/**
+          if-no-files-found: warn
+          retention-days: 7
