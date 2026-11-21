@@ -12,7 +12,7 @@ permissions:
 
 concurrency:
   group: jarvis-android-ci-${{ github.event.pull_request.number || github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: false
 
 jobs:
   worker-typecheck:
@@ -107,6 +107,7 @@ jobs:
           arch: x86_64
           profile: pixel_6
           emulator-boot-timeout: 900
+          disable-linux-hw-accel: false
           emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim
           disable-animations: true
           verbose: true
