@@ -13,7 +13,7 @@ class JarvisLaunchTest {
     @Test
     fun launchShowsAssistantAndApprovalPolicy() {
         composeRule.onNodeWithText("J.A.R.V.I.S").assertIsDisplayed()
-        composeRule.onNodeWithText("Personal Android assistant • You control every phone action")
+        composeRule.onNodeWithText("Personal Android assistant • You approve every phone action")
             .assertIsDisplayed()
         composeRule.onNodeWithText("Message JARVIS").assertIsDisplayed()
         composeRule.onNodeWithText("Send").assertIsDisplayed()
