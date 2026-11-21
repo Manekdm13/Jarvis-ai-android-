@@ -53,30 +53,41 @@ function providerOrder(message: string): Provider[] {
 
 async function askGemini(env: Env, system: string, prompt: string): Promise<{ reply: string; model: string }> {
   const model = env.GEMINI_MODEL || "gemini-3.8-flash";
-  const response = await fetch(
-    `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`,
-    {
-      method: "POST",
-      headers: { "Content-Type": "application/json", "x-goog-api-key": cleanSecret(env.JARVIS_AI_KEY) },
-      body: JSON.stringify({
-        systemInstruction: { parts: [{ text: system }] },
-        contents: [{ role: "user", parts: [{ text: prompt }] }],
-        generationConfig: { temperature: 0.7, maxOutputTokens: 2200 },
-      }),
+  // Gemini 3.x uses the Interactions API; generateContent is the legacy API path.
+  const response = await fetch("https://generativelanguage.googleapis.com/v1beta/interactions", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "x-goog-api-key": cleanSecret(env.JARVIS_AI_KEY),
     },
-  );
+    body: JSON.stringify({
+      model,
+      system_instruction: system,
+      input: prompt,
+      generation_config: { temperature: 0.7, max_output_tokens: 2200 },
+    }),
+  });
+  const raw = await response.text();
+  let data: any = {};
+  try { data = raw ? JSON.parse(raw) : {}; } catch { /* handled below with status and bounded body */ }
   if (!response.ok) {
-    const errorBody = await response.text();
-    let detail = "";
-    try { detail = JSON.parse(errorBody)?.error?.message || ""; } catch { /* ignore non-JSON provider errors */ }
-    throw new Error(`Gemini HTTP ${response.status}${detail ? `: ${detail.slice(0, 400)}` : ""}`);
+    const detail = data?.error?.message || raw.slice(0, 300);
+    throw new Error(`Gemini HTTP ${response.status}${detail ? `: ${String(detail).slice(0, 400)}` : ""}`);
   }
-  const data = await response.json() as any;
-  const reply = data?.candidates?.[0]?.content?.parts
-    ?.map((part: any) => typeof part.text === "string" ? part.text : "")
+  if (data?.status === "failed" || data?.status === "incomplete") {
+    const detail = data?.errors?.[0]?.message || data?.status;
+    throw new Error(`Gemini interaction ${data.status}: ${String(detail).slice(0, 300)}`);
+  }
+  const reply = data?.steps
+    ?.filter((step: any) => step?.type === "model_output")
+    ?.flatMap((step: any) => Array.isArray(step.content) ? step.content : [])
+    ?.map((part: any) => typeof part?.text === "string" ? part.text : "")
     .join("").trim();
-  if (!reply) throw new Error("Gemini returned an empty response");
-  return { reply, model };
+  if (!reply) {
+    const detail = data?.errors?.[0]?.message || data?.status || "no model_output text step";
+    throw new Error(`Gemini returned no text response (${String(detail).slice(0, 250)})`);
+  }
+  return { reply, model: data?.model || model };
 }
 
 async function askOpenRouter(env: Env, system: string, prompt: string): Promise<{ reply: string; model: string }> {
