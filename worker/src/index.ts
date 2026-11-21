@@ -27,6 +27,11 @@ function cleanText(value: unknown, max: number): string {
   return typeof value === "string" ? value.trim().slice(0, max) : "";
 }
 
+/** Cloudflare secrets may be pasted with a trailing newline; HTTP headers cannot contain it. */
+function cleanSecret(value?: string): string {
+  return (value || "").trim();
+}
+
 /** Compare bearer tokens without returning early on the first differing byte. */
 function tokenMatches(provided: string, expected: string): boolean {
   const encoder = new TextEncoder();
@@ -52,7 +57,7 @@ async function askGemini(env: Env, system: string, prompt: string): Promise<{ re
     `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`,
     {
       method: "POST",
-      headers: { "Content-Type": "application/json", "x-goog-api-key": env.GEMINI_API_KEY || "" },
+      headers: { "Content-Type": "application/json", "x-goog-api-key": cleanSecret(env.GEMINI_API_KEY) },
       body: JSON.stringify({
         systemInstruction: { parts: [{ text: system }] },
         contents: [{ role: "user", parts: [{ text: prompt }] }],
@@ -74,7 +79,7 @@ async function askOpenRouter(env: Env, system: string, prompt: string): Promise<
   const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
     method: "POST",
     headers: {
-      "Authorization": `Bearer ${env.OPENROUTER_API_KEY || ""}`,
+      "Authorization": `Bearer ${cleanSecret(env.OPENROUTER_API_KEY)}`,
       "Content-Type": "application/json",
       "HTTP-Referer": "https://jarvis-android.app",
       "X-Title": "JARVIS Android",

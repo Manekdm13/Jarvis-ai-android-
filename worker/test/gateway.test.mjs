@@ -64,7 +64,7 @@ test("Gemini-only configuration works without an OpenRouter key", async () => {
   try {
     const res = await worker.fetch(
       request({ message: "hello" }),
-      env({ OPENROUTER_API_KEY: undefined }),
+      env({ OPENROUTER_API_KEY: undefined, GEMINI_API_KEY: "test-gemini-key\r\n" }),
     );
     const data = await res.json();
     assert.equal(res.status, 200);
