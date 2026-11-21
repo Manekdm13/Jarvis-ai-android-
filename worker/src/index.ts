@@ -1,14 +1,18 @@
 export interface Env {
   JARVIS_AI_KEY?: string;
   OPENROUTER_API_KEY?: string;
+  GROQ_API_KEY?: string;
   GEMINI_MODEL?: string;
   OPENROUTER_MODEL?: string;
+  GROQ_MODEL?: string;
+  WORKERS_AI_MODEL?: string;
+  AI?: { run: (model: string, inputs: Record<string, unknown>) => Promise<any> };
   JARVIS_APP_TOKEN?: string;
   CHAT_LIMITER: { limit: (options: { key: string }) => Promise<{ success: boolean }> };
 }
 
 type ChatRequest = { message?: unknown; history?: unknown };
-type Provider = "gemini" | "openrouter";
+type Provider = "gemini" | "openrouter" | "groq" | "workers_ai";
 
 const cors = {
   "Access-Control-Allow-Origin": "*",
@@ -48,7 +52,7 @@ function tokenMatches(provided: string, expected: string): boolean {
 /** Prefer OpenRouter's free-model pool for technical tasks; Gemini for general chat. */
 function providerOrder(message: string): Provider[] {
   const technical = /\b(code|coding|program|debug|compile|typescript|kotlin|java|python|sql|api|algorithm|github|script|error|stack trace|architecture)\b/i.test(message);
-  return technical ? ["openrouter", "gemini"] : ["gemini", "openrouter"];
+  return technical ? ["groq", "openrouter", "gemini", "workers_ai"] : ["gemini", "groq", "workers_ai", "openrouter"];
 }
 
 async function askGemini(env: Env, system: string, prompt: string): Promise<{ reply: string; model: string }> {
@@ -90,6 +94,43 @@ async function askGemini(env: Env, system: string, prompt: string): Promise<{ re
   return { reply, model: data?.model || model };
 }
 
+async function askGroq(env: Env, system: string, prompt: string): Promise<{ reply: string; model: string }> {
+  const model = env.GROQ_MODEL || "openai/gpt-oss-20b";
+  const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+    method: "POST",
+    headers: {
+      "Authorization": `Bearer ${cleanSecret(env.GROQ_API_KEY)}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      model,
+      messages: [{ role: "system", content: system }, { role: "user", content: prompt }],
+      temperature: 0.7,
+      max_completion_tokens: 2200,
+    }),
+  });
+  if (!response.ok) {
+    const raw = await response.text();
+    throw new Error(`Groq HTTP ${response.status}: ${raw.slice(0, 300)}`);
+  }
+  const data = await response.json() as any;
+  const reply = data?.choices?.[0]?.message?.content;
+  if (typeof reply !== "string" || !reply.trim()) throw new Error("Groq returned an empty response");
+  return { reply: reply.trim(), model: data?.model || model };
+}
+
+async function askWorkersAI(env: Env, system: string, prompt: string): Promise<{ reply: string; model: string }> {
+  if (!env.AI) throw new Error("Cloudflare Workers AI binding is unavailable");
+  const model = env.WORKERS_AI_MODEL || "@cf/meta/llama-3.1-8b-instruct";
+  const result = await env.AI.run(model, {
+    messages: [{ role: "system", content: system }, { role: "user", content: prompt }],
+    max_tokens: 2200,
+  });
+  const reply = typeof result?.response === "string" ? result.response.trim() : "";
+  if (!reply) throw new Error("Cloudflare Workers AI returned an empty response");
+  return { reply, model };
+}
+
 async function askOpenRouter(env: Env, system: string, prompt: string): Promise<{ reply: string; model: string }> {
   const model = env.OPENROUTER_MODEL || "openrouter/free";
   const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
@@ -129,7 +170,7 @@ export default {
         ok: true,
         service: "JARVIS AI Gateway",
         strategy: "task-aware free-first fallback",
-        providers: { gemini: Boolean(env.JARVIS_AI_KEY), openrouter: Boolean(env.OPENROUTER_API_KEY) },
+        providers: { gemini: Boolean(env.JARVIS_AI_KEY), openrouter: Boolean(env.OPENROUTER_API_KEY), groq: Boolean(env.GROQ_API_KEY), workers_ai: Boolean(env.AI) },
         authenticationConfigured: Boolean(env.JARVIS_APP_TOKEN && env.JARVIS_APP_TOKEN.length >= 32),
       });
     }
@@ -186,6 +227,8 @@ export default {
     const available: Record<Provider, boolean> = {
       gemini: Boolean(env.JARVIS_AI_KEY),
       openrouter: Boolean(env.OPENROUTER_API_KEY),
+      groq: Boolean(env.GROQ_API_KEY),
+      workers_ai: Boolean(env.AI),
     };
     const order = providerOrder(message).filter((provider) => available[provider]);
     if (order.length === 0) {
@@ -195,9 +238,10 @@ export default {
     const failures: string[] = [];
     for (const provider of order) {
       try {
-        const result = provider === "gemini"
-          ? await askGemini(env, system, prompt)
-          : await askOpenRouter(env, system, prompt);
+        const result = provider === "gemini" ? await askGemini(env, system, prompt)
+          : provider === "openrouter" ? await askOpenRouter(env, system, prompt)
+          : provider === "groq" ? await askGroq(env, system, prompt)
+          : await askWorkersAI(env, system, prompt);
         return json({ reply: result.reply, provider, model: result.model, strategy: "task-aware-free-first" });
       } catch (error) {
         failures.push(error instanceof Error ? error.message : `${provider} request failed`);
