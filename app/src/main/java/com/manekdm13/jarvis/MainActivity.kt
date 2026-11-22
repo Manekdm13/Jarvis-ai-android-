@@ -143,6 +143,8 @@ private fun JarvisApp(onSpeak: (String) -> Unit) {
                 val researchQuery = when {
                     question.startsWith("research ", ignoreCase = true) -> question.substringAfter(" ", "").trim()
                     question.startsWith("find papers on ", ignoreCase = true) -> question.substringAfter("find papers on ", "").trim()
+                    question.startsWith("find scientific papers about ", ignoreCase = true) -> question.substringAfter("find scientific papers about ", "").trim()
+                    question.startsWith("research papers on ", ignoreCase = true) -> question.substringAfter("research papers on ", "").trim()
                     question.startsWith("search papers for ", ignoreCase = true) -> question.substringAfter("search papers for ", "").trim()
                     else -> null
                 }
