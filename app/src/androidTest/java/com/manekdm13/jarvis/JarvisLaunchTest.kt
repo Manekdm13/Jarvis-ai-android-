@@ -15,9 +15,8 @@ class JarvisLaunchTest {
         composeRule.onNodeWithText("J.A.R.V.I.S").assertIsDisplayed()
 
         // Match the stable product identity, not copy that can legitimately change.
-        composeRule.onNodeWithText("Personal Android assistant", substring = true)
-            .assertIsDisplayed()
+        composeRule.onNodeWithText("Your assistant is ready").assertIsDisplayed()
         composeRule.onNodeWithText("Message JARVIS").assertIsDisplayed()
-        composeRule.onNodeWithText("Send").assertIsDisplayed()
+        composeRule.onNodeWithText("Send  ➤").assertIsDisplayed()
     }
 }
