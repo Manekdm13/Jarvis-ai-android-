@@ -245,7 +245,7 @@ export default {
     };
     const order = providerOrder(message).filter((provider) => available[provider]);
     if (order.length === 0) {
-      return json({ error: "No AI provider is configured. Add a Gemini key and/or an OpenRouter key as Worker secrets." }, 503);
+      return json({ error: "No AI provider is configured. Add a Gemini, Groq, or OpenRouter Worker secret, or enable the Cloudflare Workers AI binding." }, 503);
     }
 
     const failures: string[] = [];
