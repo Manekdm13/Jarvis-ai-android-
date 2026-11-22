@@ -14,9 +14,9 @@ class JarvisLaunchTest {
     fun launchShowsAssistantAndApprovalPolicy() {
         composeRule.onNodeWithText("J.A.R.V.I.S").assertIsDisplayed()
 
-        // Match the stable product identity, not copy that can legitimately change.
+        // Match stable visible labels from the current dashboard and composer.
         composeRule.onNodeWithText("Your assistant is ready").assertIsDisplayed()
-        composeRule.onNodeWithText("Message JARVIS").assertIsDisplayed()
+        composeRule.onNodeWithText("Message your assistant…").assertIsDisplayed()
         composeRule.onNodeWithText("Send  ➤").assertIsDisplayed()
     }
 }
