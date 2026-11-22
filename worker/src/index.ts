@@ -1,3 +1,5 @@
+import { searchAcademicPapers } from "./research.ts";
+
 export interface Env {
   JARVIS_AI_KEY?: string;
   OPENROUTER_API_KEY?: string;
@@ -6,12 +8,14 @@ export interface Env {
   OPENROUTER_MODEL?: string;
   GROQ_MODEL?: string;
   WORKERS_AI_MODEL?: string;
+  SEMANTIC_SCHOLAR_API_KEY?: string;
+  OPENALEX_API_KEY?: string;
   AI?: { run: (model: string, inputs: Record<string, unknown>) => Promise<any> };
   JARVIS_APP_TOKEN?: string;
   CHAT_LIMITER: { limit: (options: { key: string }) => Promise<{ success: boolean }> };
 }
 
-type ChatRequest = { message?: unknown; history?: unknown };
+type ChatRequest = { message?: unknown; history?: unknown; query?: unknown; limit?: unknown };
 type Provider = "gemini" | "openrouter" | "groq" | "workers_ai";
 
 const cors = {
@@ -174,7 +178,7 @@ export default {
         authenticationConfigured: Boolean(env.JARVIS_APP_TOKEN && env.JARVIS_APP_TOKEN.length >= 32),
       });
     }
-    if (request.method !== "POST" || url.pathname !== "/v1/chat") {
+    if (request.method !== "POST" || !["/v1/chat", "/v1/research/search"].includes(url.pathname)) {
       return json({ error: "Not found" }, 404);
     }
 
@@ -205,6 +209,15 @@ export default {
       body = parsed as ChatRequest;
     } catch {
       return json({ error: "Invalid JSON" }, 400);
+    }
+
+    if (url.pathname === "/v1/research/search") {
+      try {
+        const result = await searchAcademicPapers(body.query, body.limit, env);
+        return json(result);
+      } catch (error) {
+        return json({ error: error instanceof Error ? error.message : "Research search failed" }, 502);
+      }
     }
 
     const message = cleanText(body.message, 6000);

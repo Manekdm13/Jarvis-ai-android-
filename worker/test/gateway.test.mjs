@@ -149,3 +149,82 @@ test("Cloudflare rate-limit binding receives the documented key object", async (
   assert.deepEqual(received, { key: token });
   assert.equal(res.status, 429);
 });
+
+
+test("research endpoint queries Semantic Scholar and OpenAlex and deduplicates DOI matches", async () => {
+  const original = globalThis.fetch;
+  const calls = [];
+  globalThis.fetch = async (url) => {
+    const value = String(url);
+    calls.push(value);
+    if (value.includes("semanticscholar.org")) {
+      return response({ data: [{
+        title: "Food safety review",
+        year: 2024,
+        authors: [{ name: "A. Researcher" }],
+        venue: "Food Science Journal",
+        externalIds: { DOI: "10.1000/example" },
+        url: "https://www.semanticscholar.org/paper/example",
+        citationCount: 12,
+        openAccessPdf: { url: "https://example.org/paper.pdf" },
+      }] });
+    }
+    return response({ results: [{
+      id: "https://openalex.org/W123",
+      title: "Food safety review",
+      publication_year: 2024,
+      doi: "https://doi.org/10.1000/example",
+      authorships: [],
+      cited_by_count: 12,
+      abstract_inverted_index: { Food: [0], safety: [1], matters: [2] },
+      open_access: { oa_url: "https://example.org/paper.pdf" },
+    }, {
+      id: "https://openalex.org/W456",
+      title: "New food packaging methods",
+      publication_year: 2023,
+      doi: "https://doi.org/10.1000/second",
+      authorships: [{ author: { display_name: "B. Scientist" } }],
+      cited_by_count: 4,
+      abstract_inverted_index: { Better: [0], packaging: [1] },
+      open_access: { oa_url: null },
+    }] });
+  };
+  try {
+    const res = await worker.fetch(new Request("https://jarvis.example/v1/research/search", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+      body: JSON.stringify({ query: "food safety", limit: 5 }),
+    }), env());
+    const data = await res.json();
+    assert.equal(res.status, 200);
+    assert.equal(data.papers.length, 2);
+    assert.equal(data.papers[0].source, "Semantic Scholar");
+    assert.equal(data.papers[1].source, "OpenAlex");
+    assert.equal(data.papers[1].abstract, "Better packaging");
+    assert.equal(calls.length, 2);
+  } finally { globalThis.fetch = original; }
+});
+
+test("research endpoint rejects missing authentication", async () => {
+  const res = await worker.fetch(new Request("https://jarvis.example/v1/research/search", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ query: "food science" }),
+  }), env());
+  assert.equal(res.status, 401);
+});
+
+test("research endpoint rejects short queries without calling external sources", async () => {
+  const original = globalThis.fetch;
+  let calls = 0;
+  globalThis.fetch = async () => { calls++; return response({}); };
+  try {
+    const res = await worker.fetch(new Request("https://jarvis.example/v1/research/search", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+      body: JSON.stringify({ query: "a" }),
+    }), env());
+    assert.equal(res.status, 502);
+    assert.equal(calls, 0);
+  } finally { globalThis.fetch = original; }
+});

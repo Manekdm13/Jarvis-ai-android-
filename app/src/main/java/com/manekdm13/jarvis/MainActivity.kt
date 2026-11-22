@@ -140,7 +140,30 @@ private fun JarvisApp(onSpeak: (String) -> Unit) {
             }
             prepared != null -> record(question, prepared.second)
             else -> {
-                if (gatewayUrl.isBlank()) {
+                val researchQuery = when {
+                    question.startsWith("research ", ignoreCase = true) -> question.substringAfter(" ", "").trim()
+                    question.startsWith("find papers on ", ignoreCase = true) -> question.substringAfter("find papers on ", "").trim()
+                    question.startsWith("find scientific papers about ", ignoreCase = true) -> question.substringAfter("find scientific papers about ", "").trim()
+                    question.startsWith("research papers on ", ignoreCase = true) -> question.substringAfter("research papers on ", "").trim()
+                    question.startsWith("search papers for ", ignoreCase = true) -> question.substringAfter("search papers for ", "").trim()
+                    else -> null
+                }
+                if (researchQuery != null) {
+                    if (gatewayUrl.isBlank()) {
+                        record(question, "Online research is not configured. Add your Cloudflare Worker URL and private access token first.")
+                    } else {
+                        isThinking = true
+                        scope.launch {
+                            val answer = withContext(Dispatchers.IO) {
+                                runCatching { AcademicResearchClient.search(gatewayUrl, gatewayToken, researchQuery) }
+                            }
+                            isThinking = false
+                            record(question, answer.getOrElse { error ->
+                                "I couldn't complete the paper search: ${error.message ?: "unknown network error"}"
+                            })
+                        }
+                    }
+                } else if (gatewayUrl.isBlank()) {
                     record(question, "Online AI is not configured yet. Paste your Cloudflare Worker URL into the AI gateway URL field above.")
                 } else {
                     isThinking = true

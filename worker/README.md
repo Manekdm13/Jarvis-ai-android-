@@ -70,3 +70,35 @@ The default model is `openrouter/free`. It is not required for the first Gemini-
 ```
 
 Successful responses include `reply`, `provider`, `model`, and the routing strategy. Authentication failures return HTTP 401.
+
+
+## Academic research search (new)
+
+JARVIS also exposes an authenticated scholarly search endpoint that queries two public research indexes in parallel:
+
+- **Semantic Scholar Academic Graph API** for paper titles, abstracts, authors, venues, DOI identifiers, citation counts, paper pages and open-access PDF links.
+- **OpenAlex Works API** for an independent index, publication metadata, author lists, citation counts and open-access locations.
+
+No paid API key is required for the default integration. Semantic Scholar's optional API key can be added as the Worker secret `SEMANTIC_SCHOLAR_API_KEY` if you obtain one and need higher/steadier quota. OpenAlex works with keyless basic access; its free daily budget and rate limits still apply. Do not add a paid OpenAlex plan or billing unless the owner explicitly chooses to.
+
+### Android usage
+
+In the JARVIS chat, use one of these explicit commands:
+
+- `Research food safety in dairy processing`
+- `Find papers on antimicrobial packaging`
+- `Search papers for whey protein applications`
+
+The app sends the query to the Worker over HTTPS. The Worker authenticates the request with the same private JARVIS app token, rate-limits it, queries both sources, merges and deduplicates results, and returns up to 12 records. JARVIS formats authors, year, journal/source, DOI, paper page and open-access URL when available.
+
+### Research API
+
+`POST /v1/research/search` requires `Authorization: Bearer YOUR_JARVIS_APP_TOKEN`:
+
+```json
+{ "query": "food safety in dairy processing", "limit": 5 }
+```
+
+The response contains `query`, `papers`, `sources`, `partial`, and `warnings`. Each paper includes its source database and available metadata. If one database is unavailable, JARVIS can still return results from the other and labels the result as partial.
+
+This is literature discovery, not a substitute for reading the paper. Citation counts are not quality scores; verify publication status, methods, DOI and full text before relying on a paper. Abstracts and metadata may be incomplete or unavailable. The search does not download or store full papers automatically.

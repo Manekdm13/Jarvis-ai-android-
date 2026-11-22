@@ -5,8 +5,14 @@
     "moduleResolution": "Bundler",
     "strict": true,
     "skipLibCheck": true,
-    "lib": ["ES2022", "WebWorker"],
-    "types": []
+    "lib": [
+      "ES2022",
+      "WebWorker"
+    ],
+    "types": [],
+    "allowImportingTsExtensions": true
   },
-  "include": ["src/**/*.ts"]
+  "include": [
+    "src/**/*.ts"
+  ]
 }
