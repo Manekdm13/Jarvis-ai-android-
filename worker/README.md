@@ -1,10 +1,28 @@
 # JARVIS online AI gateway
 
-This Cloudflare Worker keeps provider API keys and the app's shared gateway token off the Android APK and GitHub. Android sends chat text over HTTPS; the Worker authenticates the app, applies rate limits, and routes requests to configured providers.
+This Cloudflare Worker keeps provider API keys and the app's shared gateway token off the Android APK and GitHub. Android sends chat text over HTTPS; the Worker authenticates the app, applies rate limits, and routes requests to configured online providers.
 
-## Free Gemini setup (recommended first connection)
+## Current provider routing
 
-You only need a Google AI Studio API key and a separate JARVIS app token to start with Gemini. OpenRouter is optional; do not create another provider account just to get the first connection working.
+The provider order is task-aware. Unconfigured providers are skipped, and the Worker tries the remaining configured providers in order:
+
+- General chat: Gemini → Groq → Cloudflare Workers AI → OpenRouter.
+- Technical/coding prompts: Groq → OpenRouter → Gemini → Cloudflare Workers AI.
+
+Current default model identifiers are configured in `wrangler.toml`:
+
+- Gemini: `gemini-3.1-flash-lite` (Worker secret: `JARVIS_AI_KEY`).
+- Groq: `openai/gpt-oss-20b` (optional Worker secret: `GROQ_API_KEY`).
+- OpenRouter: `openrouter/free` (optional Worker secret: `OPENROUTER_API_KEY`).
+- Cloudflare Workers AI: `@cf/meta/llama-3.1-8b-instruct` using the `AI` binding.
+
+Provider availability, rate limits, quotas, and pricing depend on the provider account and can change. Check each provider's current dashboard before relying on a free quota or enabling a provider that may incur charges.
+
+**Important:** Cloudflare Workers AI is still an online service. It is not an offline/on-device fallback. JARVIS does not yet include a local language model.
+
+**xAI/Grok is not currently implemented in this Worker.** Creating an `XAI_API_KEY` secret alone will not make Grok available; provider code, routing, health reporting, and tests must be added first.
+
+## First connection: Gemini
 
 1. In Google AI Studio, create or copy your Gemini API key. Never paste it into the Android app, GitHub, or ChatGPT.
 2. From the repository's `worker` directory, install dependencies and authenticate Wrangler:
@@ -17,11 +35,11 @@ You only need a Google AI Studio API key and a separate JARVIS app token to star
    npx wrangler secret put JARVIS_AI_KEY
    ```
    Paste the key only into the secure Wrangler prompt.
-4. Generate a separate random app token (at least 32 characters):
+4. Generate a separate random app token of at least 32 characters:
    ```sh
    node -e "console.log(require('node:crypto').randomBytes(32).toString('hex'))"
    ```
-   Save the generated token privately. Add it to the Worker:
+   Save it privately. Add it to the Worker:
    ```sh
    npx wrangler secret put JARVIS_APP_TOKEN
    ```
@@ -30,47 +48,41 @@ You only need a Google AI Studio API key and a separate JARVIS app token to star
    ```sh
    npx wrangler deploy
    ```
-6. Open `https://YOUR-WORKER.workers.dev/health`. Expect `ok: true`, `providers.gemini: true`, and `authenticationConfigured: true`. These are boolean status flags only; the endpoint never returns secret values.
-7. In JARVIS, enter the Worker base URL and the generated app token. The Android client appends `/v1/chat` automatically. Send a short test message.
+6. Open `https://YOUR-WORKER.workers.dev/health`. Expect `ok: true`, `providers.gemini: true`, and `authenticationConfigured: true`. These are configuration flags only; the endpoint never returns secret values.
+7. In JARVIS, enter the Worker base URL and generated app token. The Android client appends `/v1/chat` automatically. Send a short test message.
 
-## Provider and cost behavior
+## Optional provider secrets
 
-- Gemini is the default general-chat provider. Default model: `gemini-3.8-flash`.
-- Google's Gemini API pricing page lists a free tier for this model, subject to account-specific quotas, availability, and rate limits. Free access is not an unlimited-uptime guarantee.
-- Gemini free-tier prompts and responses may be used by Google to improve its products. Do not send passwords, authentication codes, financial details, or other sensitive content.
-- OpenRouter is optional. If configured, technical prompts try its `openrouter/free` model pool first; other prompts try Gemini first. A failed first provider can fall back to the other configured provider.
-- The gateway does not silently select paid models. Free model availability and quotas are controlled by the providers and can change.
+Only configure providers you intend to use:
 
-## Optional OpenRouter fallback
-
-If you later want a second free-provider route, add an OpenRouter key as a Worker secret:
 ```sh
+npx wrangler secret put GROQ_API_KEY
 npx wrangler secret put OPENROUTER_API_KEY
 ```
-The default model is `openrouter/free`. It is not required for the first Gemini-only connection.
+
+The model names can be overridden using the corresponding non-secret variables in `wrangler.toml`: `GEMINI_MODEL`, `GROQ_MODEL`, `OPENROUTER_MODEL`, and `WORKERS_AI_MODEL`. The Cloudflare `AI` binding is declared in `wrangler.toml`; it does not require an API key in the Android app.
 
 ## Security and limits
 
 - The Worker rejects chat requests without a matching bearer token of at least 32 characters.
 - The app token is stored on Android using Android Keystore-backed AES-GCM encryption.
 - Provider API keys remain Cloudflare Worker secrets and are never sent to Android.
-- CORS allows the `Authorization` header; the endpoint does not use cookie authentication.
-- The Worker checks the actual request body size and rate-limits authenticated chat requests using Cloudflare's `CHAT_LIMITER` binding.
+- The Worker rate-limits authenticated chat requests using Cloudflare's `CHAT_LIMITER` binding and checks request size.
+- The health endpoint reveals configuration status only, never secret values.
 - Phone actions remain local to Android and require user-visible approval. The Worker cannot operate the phone.
-- The health endpoint reveals only configuration status, never secret values.
-- Treat conversation content sent to an online model as data leaving the device. Do not send secrets.
+- Treat conversation content sent to an online model as data leaving the device. Do not send passwords, OTPs, authentication tokens, or other secrets.
 
 ## API
 
-`GET /health` returns gateway status and boolean configuration flags.
+`GET /health` returns gateway status and boolean provider/authentication configuration flags.
 
 `POST /v1/chat` requires `Authorization: Bearer YOUR_JARVIS_APP_TOKEN` and a JSON body:
+
 ```json
 { "message": "Hello JARVIS", "history": "Recent local conversation text" }
 ```
 
-Successful responses include `reply`, `provider`, `model`, and the routing strategy. Authentication failures return HTTP 401.
-
+Successful responses include `reply`, `provider`, `model`, and the routing strategy. Authentication failures return HTTP 401. If all configured providers fail, the Worker returns a provider error summary without exposing API key values.
 
 ## Academic research search (new)
 
