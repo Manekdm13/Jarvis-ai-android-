@@ -7,7 +7,9 @@ export interface Env {
   GEMINI_MODEL?: string;
   OPENROUTER_MODEL?: string;
   GROQ_MODEL?: string;
-  WORKERS_AI_MODEL?: string;\n  SEMANTIC_SCHOLAR_API_KEY?: string;\n  OPENALEX_API_KEY?: string;
+  WORKERS_AI_MODEL?: string;
+  SEMANTIC_SCHOLAR_API_KEY?: string;
+  OPENALEX_API_KEY?: string;
   AI?: { run: (model: string, inputs: Record<string, unknown>) => Promise<any> };
   JARVIS_APP_TOKEN?: string;
   CHAT_LIMITER: { limit: (options: { key: string }) => Promise<{ success: boolean }> };
