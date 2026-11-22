@@ -15,7 +15,7 @@ export interface Env {
   CHAT_LIMITER: { limit: (options: { key: string }) => Promise<{ success: boolean }> };
 }
 
-type ChatRequest = { message?: unknown; history?: unknown };
+type ChatRequest = { message?: unknown; history?: unknown; query?: unknown; limit?: unknown };
 type Provider = "gemini" | "openrouter" | "groq" | "workers_ai";
 
 const cors = {
