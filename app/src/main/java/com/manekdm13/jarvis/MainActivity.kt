@@ -16,16 +16,21 @@ import androidx.activity.compose.setContent
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
@@ -34,6 +39,8 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.material3.darkColorScheme
 import androidx.compose.runtime.*
 import androidx.compose.runtime.rememberCoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -84,6 +91,9 @@ private fun JarvisApp(onSpeak: (String) -> Unit) {
     val context = LocalContext.current
     val clipboardManager = LocalClipboardManager.current
     val memory = remember(context) { ConversationMemory(context.applicationContext) }
+    val profileMemory = remember(context) { UserProfileMemory(context.applicationContext) }
+    var userProfile by remember(profileMemory) { mutableStateOf(profileMemory.load()) }
+    var profileStatus by remember { mutableStateOf("") }
     var input by remember { mutableStateOf("") }
     val settings = remember(context) {
         context.getSharedPreferences("jarvis_settings", Context.MODE_PRIVATE)
@@ -98,6 +108,7 @@ private fun JarvisApp(onSpeak: (String) -> Unit) {
     var isThinking by remember { mutableStateOf(false) }
     var isCheckingUpdate by remember { mutableStateOf(false) }
     var updateStatus by remember { mutableStateOf("") }
+    var showSettings by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
     var pendingAction by remember { mutableStateOf<PendingPhoneAction?>(null) }
     var messages by remember(memory) {
@@ -144,7 +155,15 @@ private fun JarvisApp(onSpeak: (String) -> Unit) {
                     record(question, "Online AI is not configured yet. Paste your Cloudflare Worker URL into the AI gateway URL field above.")
                 } else {
                     isThinking = true
-                    val history = messages.takeLast(20).joinToString("\n")
+                    val history = buildString {
+                        if (userProfile.isNotBlank()) {
+                            append("USER PROFILE (private context supplied by the user):\n")
+                            append(userProfile.trim())
+                            append("\n\n")
+                        }
+                        append("RECENT CONVERSATION:\n")
+                        append(messages.takeLast(20).joinToString("\n"))
+                    }
                     scope.launch {
                         val answer = withContext(Dispatchers.IO) {
                             runCatching { AiGatewayClient.reply(gatewayUrl, gatewayToken, question, history) }
@@ -159,143 +178,315 @@ private fun JarvisApp(onSpeak: (String) -> Unit) {
         }
     }
 
-    MaterialTheme {
-        Surface(
-            modifier = Modifier.fillMaxSize(),
-            color = MaterialTheme.colorScheme.background
+    val jarvisColors = darkColorScheme(
+        primary = Color(0xFF65E6F2),
+        onPrimary = Color(0xFF04151B),
+        secondary = Color(0xFF9AABFF),
+        background = Color(0xFF070B16),
+        surface = Color(0xFF101827),
+        surfaceVariant = Color(0xFF18263A),
+        onSurface = Color(0xFFEAF4FF),
+        onSurfaceVariant = Color(0xFF9DB0C7)
+    )
+
+    MaterialTheme(colorScheme = jarvisColors) {
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(
+                    Brush.verticalGradient(
+                        listOf(Color(0xFF0B1728), Color(0xFF070B16), Color(0xFF090F1D))
+                    )
+                )
         ) {
             Column(
-                modifier = Modifier.fillMaxSize().padding(20.dp),
+                modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp, vertical = 14.dp),
                 verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
-                Text("J.A.R.V.I.S", style = MaterialTheme.typography.headlineLarge)
-                Text("Personal Android assistant • You control every phone action")
-                Button(
-                    onClick = {
-                        if (!isCheckingUpdate) {
-                            isCheckingUpdate = true
-                            updateStatus = "Checking for a new JARVIS release…"
-                            scope.launch {
-                                try {
-                                    val update = AppUpdater.check()
-                                    if (update == null) {
-                                        updateStatus = "No newer published release was found."
-                                    } else if (
-                                        Build.VERSION.SDK_INT >= Build.VERSION_CODES.O &&
-                                        !context.packageManager.canRequestPackageInstalls()
-                                    ) {
-                                        updateStatus = "Allow JARVIS to install updates, then tap Check for updates again."
-                                        context.startActivity(
-                                            Intent(
-                                                Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES,
-                                                Uri.parse("package:${context.packageName}")
-                                            )
-                                        )
-                                    } else {
-                                        updateStatus = "Downloading JARVIS ${update.versionName}…"
-                                        AppUpdater.downloadAndInstall(context, update)
-                                        updateStatus = "Opening Android's installer. Confirm the update there."
-                                    }
-                                } catch (error: Exception) {
-                                    updateStatus = "Update check failed: ${error.message ?: "unknown error"}"
-                                } finally {
-                                    isCheckingUpdate = false
-                                }
-                            }
-                        }
-                    },
-                    enabled = !isCheckingUpdate,
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                        Text(
+                            "J.A.R.V.I.S",
+                            style = MaterialTheme.typography.headlineMedium,
+                            color = Color(0xFFEAF7FF)
+                        )
+                        Text(
+                            "PERSONAL INTELLIGENCE SYSTEM",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = Color(0xFF80A5C4)
+                        )
+                    }
+                    Surface(
+                        shape = CircleShape,
+                        color = Color(0xFF123A3B),
+                        contentColor = Color(0xFF78F0D0)
+                    ) {
+                        Text(
+                            "  ● ONLINE  ",
+                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 7.dp),
+                            style = MaterialTheme.typography.labelSmall
+                        )
+                    }
+                }
+
+                Card(
+                    shape = RoundedCornerShape(22.dp),
+                    colors = androidx.compose.material3.CardDefaults.cardColors(
+                        containerColor = Color(0xFF12243A)
+                    ),
                     modifier = Modifier.fillMaxWidth()
                 ) {
-                    Text(if (isCheckingUpdate) "Checking…" else "Check for updates")
+                    Row(
+                        modifier = Modifier.fillMaxWidth().padding(14.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = androidx.compose.ui.Alignment.CenterVertically
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text("Your assistant is ready", color = Color(0xFFEAF7FF), style = MaterialTheme.typography.titleMedium)
+                            Text(
+                                "Ask anything. Your phone actions stay under your control.",
+                                color = Color(0xFF9DB5CD),
+                                style = MaterialTheme.typography.bodySmall
+                            )
+                        }
+                        Button(
+                            onClick = {
+                                if (!isCheckingUpdate) {
+                                    isCheckingUpdate = true
+                                    updateStatus = "Checking for a new JARVIS release…"
+                                    scope.launch {
+                                        try {
+                                            val update = AppUpdater.check()
+                                            if (update == null) {
+                                                updateStatus = "You're using the latest published release."
+                                            } else if (
+                                                Build.VERSION.SDK_INT >= Build.VERSION_CODES.O &&
+                                                !context.packageManager.canRequestPackageInstalls()
+                                            ) {
+                                                updateStatus = "Allow JARVIS to install updates, then check again."
+                                                context.startActivity(
+                                                    Intent(
+                                                        Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES,
+                                                        Uri.parse("package:${context.packageName}")
+                                                    )
+                                                )
+                                            } else {
+                                                updateStatus = "Downloading JARVIS ${update.versionName}…"
+                                                AppUpdater.downloadAndInstall(context, update)
+                                                updateStatus = "Android installer opened. Confirm the update there."
+                                            }
+                                        } catch (error: Exception) {
+                                            updateStatus = "Update check failed: ${error.message ?: "unknown error"}"
+                                        } finally {
+                                            isCheckingUpdate = false
+                                        }
+                                    }
+                                }
+                            },
+                            enabled = !isCheckingUpdate,
+                            shape = RoundedCornerShape(14.dp)
+                        ) {
+                            Text(if (isCheckingUpdate) "…" else "Update")
+                        }
+                    }
                 }
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = androidx.compose.ui.Alignment.CenterVertically
+                ) {
+                    Text("CONVERSATION", color = Color(0xFF8EAAC6), style = MaterialTheme.typography.labelMedium)
+                    TextButton(onClick = { showSettings = !showSettings }) {
+                        Text(if (showSettings) "Hide settings" else "Connection settings")
+                    }
+                }
+
+                if (showSettings) {
+                    Card(
+                        shape = RoundedCornerShape(18.dp),
+                        colors = androidx.compose.material3.CardDefaults.cardColors(containerColor = Color(0xFF101C2D))
+                    ) {
+                        Column(
+                            modifier = Modifier.fillMaxWidth().padding(14.dp),
+                            verticalArrangement = Arrangement.spacedBy(10.dp)
+                        ) {
+                            OutlinedTextField(
+                                value = gatewayUrl,
+                                onValueChange = {
+                                    gatewayUrl = it
+                                    settings.edit().putString("ai_gateway_url", it.trim()).apply()
+                                },
+                                modifier = Modifier.fillMaxWidth(),
+                                label = { Text("AI gateway URL") },
+                                placeholder = { Text("https://your-worker.workers.dev") },
+                                singleLine = true
+                            )
+                            OutlinedTextField(
+                                value = gatewayToken,
+                                onValueChange = { value -> gatewayToken = value; SecureTokenStore.save(context, value) },
+                                modifier = Modifier.fillMaxWidth(),
+                                label = { Text("Private gateway token") },
+                                placeholder = { Text("Your JARVIS access token") },
+                                singleLine = true,
+                                visualTransformation = PasswordVisualTransformation()
+                            )
+
+                            Text(
+                                "PERSONAL PROFILE",
+                                color = Color(0xFF70DCEB),
+                                style = MaterialTheme.typography.labelMedium
+                            )
+                            Text(
+                                "Encrypted on this device. JARVIS includes this context with online chat requests. Edit or clear anything you don't want used.",
+                                color = Color(0xFF9DB5CD),
+                                style = MaterialTheme.typography.bodySmall
+                            )
+                            OutlinedTextField(
+                                value = userProfile,
+                                onValueChange = { userProfile = it; profileStatus = "" },
+                                modifier = Modifier.fillMaxWidth(),
+                                label = { Text("Your information and goals") },
+                                minLines = 5,
+                                maxLines = 10
+                            )
+                            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                Button(
+                                    onClick = {
+                                        runCatching { profileMemory.save(userProfile) }
+                                            .onSuccess { profileStatus = "Personal profile saved securely." }
+                                            .onFailure { profileStatus = it.message ?: "Could not save profile." }
+                                    },
+                                    shape = RoundedCornerShape(12.dp)
+                                ) { Text("Save profile") }
+                                OutlinedButton(
+                                    onClick = {
+                                        profileMemory.clear()
+                                        userProfile = ""
+                                        profileStatus = "Personal profile cleared from this device."
+                                    },
+                                    shape = RoundedCornerShape(12.dp)
+                                ) { Text("Clear") }
+                            }
+                            if (profileStatus.isNotBlank()) {
+                                Text(profileStatus, color = Color(0xFF9FC7D8), style = MaterialTheme.typography.bodySmall)
+                            }
+                        }
+                    }
+                }
+
                 if (updateStatus.isNotBlank()) {
-                    Text(updateStatus, style = MaterialTheme.typography.bodySmall)
+                    Text(updateStatus, color = Color(0xFF9FC7D8), style = MaterialTheme.typography.bodySmall)
                 }
-                OutlinedTextField(
-                    value = gatewayUrl,
-                    onValueChange = {
-                        gatewayUrl = it
-                        settings.edit().putString("ai_gateway_url", it.trim()).apply()
-                    },
-                    modifier = Modifier.fillMaxWidth(),
-                    label = { Text("AI gateway URL (Cloudflare Worker)") },
-                    placeholder = { Text("https://your-worker.workers.dev") },
-                    singleLine = true
-                )
-                OutlinedTextField(
-                    value = gatewayToken,
-                    onValueChange = { value -> gatewayToken = value; SecureTokenStore.save(context, value) },
-                    modifier = Modifier.fillMaxWidth(),
-                    label = { Text("Private gateway access token") },
-                    placeholder = { Text("Paste your JARVIS token here") },
-                    singleLine = true,
-                    visualTransformation = PasswordVisualTransformation()
-                )
-                if (isThinking) Text("JARVIS is thinking…", color = MaterialTheme.colorScheme.primary)
+
                 Card(
-                    shape = RoundedCornerShape(18.dp),
+                    shape = RoundedCornerShape(24.dp),
+                    colors = androidx.compose.material3.CardDefaults.cardColors(containerColor = Color(0xCC101B2B)),
                     modifier = Modifier.weight(1f).fillMaxWidth()
                 ) {
                     LazyColumn(
                         state = listState,
                         modifier = Modifier.fillMaxSize().padding(14.dp),
-                        verticalArrangement = Arrangement.spacedBy(10.dp)
+                        verticalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
                         items(messages) { line ->
-                            if (line.startsWith("JARVIS:")) {
-                                Row(
-                                    modifier = Modifier.fillMaxWidth(),
-                                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            val isJarvis = line.startsWith("JARVIS:")
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = if (isJarvis) Arrangement.Start else Arrangement.End
+                            ) {
+                                Surface(
+                                    shape = RoundedCornerShape(
+                                        topStart = 18.dp,
+                                        topEnd = 18.dp,
+                                        bottomEnd = if (isJarvis) 18.dp else 5.dp,
+                                        bottomStart = if (isJarvis) 5.dp else 18.dp
+                                    ),
+                                    color = if (isJarvis) Color(0xFF1A2B40) else Color(0xFF123D50),
+                                    modifier = Modifier.fillMaxWidth(0.92f)
                                 ) {
-                                    Text(
-                                        line,
-                                        modifier = Modifier.weight(1f),
-                                        style = MaterialTheme.typography.bodyLarge
-                                    )
-                                    OutlinedButton(
-                                        onClick = {
-                                            val replyText = line.removePrefix("JARVIS:").trim()
-                                            clipboardManager.setText(AnnotatedString(replyText))
-                                            Toast.makeText(context, "JARVIS response copied", Toast.LENGTH_SHORT).show()
+                                    Column(modifier = Modifier.padding(horizontal = 14.dp, vertical = 11.dp)) {
+                                        Text(
+                                            if (isJarvis) "JARVIS" else "YOU",
+                                            color = if (isJarvis) Color(0xFF70DCEB) else Color(0xFF9DBDFF),
+                                            style = MaterialTheme.typography.labelSmall
+                                        )
+                                        Spacer(modifier = Modifier.height(4.dp))
+                                        Text(
+                                            if (isJarvis) line.removePrefix("JARVIS:").trim()
+                                            else line.removePrefix("YOU:").trim(),
+                                            color = Color(0xFFEAF4FF),
+                                            style = MaterialTheme.typography.bodyLarge
+                                        )
+                                        if (isJarvis) {
+                                            TextButton(
+                                                onClick = {
+                                                    clipboardManager.setText(
+                                                        AnnotatedString(line.removePrefix("JARVIS:").trim())
+                                                    )
+                                                    Toast.makeText(context, "JARVIS response copied", Toast.LENGTH_SHORT).show()
+                                                },
+                                                modifier = Modifier.align(androidx.compose.ui.Alignment.End)
+                                            ) {
+                                                Text("Copy reply")
+                                            }
                                         }
-                                    ) {
-                                        Text("Copy")
                                     }
                                 }
-                            } else {
-                                Text(line, style = MaterialTheme.typography.bodyLarge)
+                            }
+                        }
+                        if (isThinking) {
+                            item {
+                                Text(
+                                    "JARVIS is thinking…",
+                                    color = Color(0xFF70DCEB),
+                                    style = MaterialTheme.typography.bodyMedium
+                                )
                             }
                         }
                     }
                 }
-                OutlinedTextField(
-                    value = input,
-                    onValueChange = { input = it },
-                    modifier = Modifier.fillMaxWidth(),
-                    label = { Text("Message JARVIS") },
-                    maxLines = 3
-                )
-                Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                    Button(
-                        onClick = {
-                            val intent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
-                                putExtra(
-                                    RecognizerIntent.EXTRA_LANGUAGE_MODEL,
-                                    RecognizerIntent.LANGUAGE_MODEL_FREE_FORM
-                                )
-                                putExtra(RecognizerIntent.EXTRA_LANGUAGE, Locale.getDefault())
-                                putExtra(RecognizerIntent.EXTRA_PROMPT, "Speak to JARVIS")
-                            }
-                            runCatching { voiceLauncher.launch(intent) }
-                        },
-                        modifier = Modifier.weight(1f)
-                    ) { Text("Speak") }
-                    Button(onClick = { sendMessage() }, modifier = Modifier.weight(1f), enabled = !isThinking) {
-                        Text(if (isThinking) "Thinking…" else "Send")
+
+                Card(
+                    shape = RoundedCornerShape(22.dp),
+                    colors = androidx.compose.material3.CardDefaults.cardColors(containerColor = Color(0xFF111E30))
+                ) {
+                    Column(
+                        modifier = Modifier.fillMaxWidth().padding(10.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        OutlinedTextField(
+                            value = input,
+                            onValueChange = { input = it },
+                            modifier = Modifier.fillMaxWidth(),
+                            placeholder = { Text("Message your assistant…") },
+                            maxLines = 3
+                        )
+                        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                            OutlinedButton(
+                                onClick = {
+                                    val intent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
+                                        putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
+                                        putExtra(RecognizerIntent.EXTRA_LANGUAGE, Locale.getDefault())
+                                        putExtra(RecognizerIntent.EXTRA_PROMPT, "Speak to JARVIS")
+                                    }
+                                    runCatching { voiceLauncher.launch(intent) }
+                                },
+                                modifier = Modifier.weight(1f),
+                                shape = RoundedCornerShape(14.dp)
+                            ) { Text("🎙  Speak") }
+                            Button(
+                                onClick = { sendMessage() },
+                                modifier = Modifier.weight(1f),
+                                enabled = !isThinking,
+                                shape = RoundedCornerShape(14.dp)
+                            ) { Text(if (isThinking) "Thinking…" else "Send  ➤") }
+                        }
                     }
                 }
-                Spacer(modifier = Modifier.height(2.dp))
             }
         }
     }
