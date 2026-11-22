@@ -37,11 +37,13 @@ internal object AcademicResearchClient {
             for (index in 0 until minOf(papers.length(), 12)) {
                 val paper = papers.optJSONObject(index) ?: continue
                 val title = paper.optString("title", "Untitled paper")
+                val source = paper.optString("source").takeIf { it.isNotBlank() }
                 val year = paper.opt("year")?.takeIf { it !is JSONObject && it != JSONObject.NULL }?.toString()
                 val authors = paper.optJSONArray("authors")?.let { array ->
                     (0 until minOf(array.length(), 4)).map { array.optString(it) }.filter { it.isNotBlank() }
                         .joinToString(", ")
                 }.orEmpty()
+                val abstractText = paper.optString("abstract").takeIf { it.isNotBlank() && it != "null" }
                 val venue = paper.optString("venue").takeIf { it.isNotBlank() && it != "null" }
                 val doi = paper.optString("doi").takeIf { it.isNotBlank() && it != "null" }
                 val citations = paper.opt("citations")?.takeIf { it !is JSONObject && it != JSONObject.NULL }?.toString()
