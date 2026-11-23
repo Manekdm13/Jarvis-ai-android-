@@ -91,6 +91,9 @@ private fun JarvisApp(onSpeak: (String) -> Unit) {
     val context = LocalContext.current
     val clipboardManager = LocalClipboardManager.current
     val memory = remember(context) { ConversationMemory(context.applicationContext) }
+    val profileMemory = remember(context) { UserProfileMemory(context.applicationContext) }
+    var userProfile by remember(profileMemory) { mutableStateOf(profileMemory.load()) }
+    var profileStatus by remember { mutableStateOf("") }
     var input by remember { mutableStateOf("") }
     val settings = remember(context) {
         context.getSharedPreferences("jarvis_settings", Context.MODE_PRIVATE)
@@ -152,7 +155,15 @@ private fun JarvisApp(onSpeak: (String) -> Unit) {
                     record(question, "Online AI is not configured yet. Paste your Cloudflare Worker URL into the AI gateway URL field above.")
                 } else {
                     isThinking = true
-                    val history = messages.takeLast(20).joinToString("\n")
+                    val history = buildString {
+                        if (userProfile.isNotBlank()) {
+                            append("USER PROFILE (private context supplied by the user):\n")
+                            append(userProfile.trim())
+                            append("\n\n")
+                        }
+                        append("RECENT CONVERSATION:\n")
+                        append(messages.takeLast(20).joinToString("\n"))
+                    }
                     scope.launch {
                         val answer = withContext(Dispatchers.IO) {
                             runCatching { AiGatewayClient.reply(gatewayUrl, gatewayToken, question, history) }
@@ -323,6 +334,46 @@ private fun JarvisApp(onSpeak: (String) -> Unit) {
                                 singleLine = true,
                                 visualTransformation = PasswordVisualTransformation()
                             )
+
+                            Text(
+                                "PERSONAL PROFILE",
+                                color = Color(0xFF70DCEB),
+                                style = MaterialTheme.typography.labelMedium
+                            )
+                            Text(
+                                "Encrypted on this device. JARVIS includes this context with online chat requests. Edit or clear anything you don't want used.",
+                                color = Color(0xFF9DB5CD),
+                                style = MaterialTheme.typography.bodySmall
+                            )
+                            OutlinedTextField(
+                                value = userProfile,
+                                onValueChange = { userProfile = it; profileStatus = "" },
+                                modifier = Modifier.fillMaxWidth(),
+                                label = { Text("Your information and goals") },
+                                minLines = 5,
+                                maxLines = 10
+                            )
+                            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                Button(
+                                    onClick = {
+                                        runCatching { profileMemory.save(userProfile) }
+                                            .onSuccess { profileStatus = "Personal profile saved securely." }
+                                            .onFailure { profileStatus = it.message ?: "Could not save profile." }
+                                    },
+                                    shape = RoundedCornerShape(12.dp)
+                                ) { Text("Save profile") }
+                                OutlinedButton(
+                                    onClick = {
+                                        profileMemory.clear()
+                                        userProfile = ""
+                                        profileStatus = "Personal profile cleared from this device."
+                                    },
+                                    shape = RoundedCornerShape(12.dp)
+                                ) { Text("Clear") }
+                            }
+                            if (profileStatus.isNotBlank()) {
+                                Text(profileStatus, color = Color(0xFF9FC7D8), style = MaterialTheme.typography.bodySmall)
+                            }
                         }
                     }
                 }
