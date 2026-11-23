@@ -5,6 +5,30 @@ import java.net.HttpURLConnection
 import java.net.URL
 
 internal object AiGatewayClient {
+    /** Uses the same Android HTTP stack as chat, but performs a safe unauthenticated GET. */
+    fun checkHealth(baseUrl: String): String {
+        val cleanBase = baseUrl.trim().trimEnd('/')
+        require(cleanBase.startsWith("https://")) { "Enter a valid HTTPS Worker URL in AI gateway URL." }
+        val endpoint = if (cleanBase.endsWith("/health")) cleanBase else "$cleanBase/health"
+        val connection = (URL(endpoint).openConnection() as HttpURLConnection).apply {
+            requestMethod = "GET"
+            connectTimeout = 20_000
+            readTimeout = 15_000
+            setRequestProperty("Accept", "application/json")
+        }
+        try {
+            val status = connection.responseCode
+            val stream = if (status in 200..299) connection.inputStream else connection.errorStream
+            val body = stream?.bufferedReader()?.use { it.readText() }.orEmpty()
+            if (status !in 200..299) return "Worker health check returned HTTP $status."
+            val json = JSONObject(body)
+            if (!json.optBoolean("ok", false)) return "Worker responded, but health status is not OK."
+            return "Android app connected successfully. Gateway is online; authenticationConfigured=${json.optJSONObject("providers")?.let { "provider flags available" } ?: "unknown"}."
+        } finally {
+            connection.disconnect()
+        }
+    }
+
     fun reply(baseUrl: String, token: String, message: String, history: String): String {
         require(token.isNotBlank()) { "Enter your private gateway access token in JARVIS settings." }
         val cleanBase = baseUrl.trim().trimEnd('/')
