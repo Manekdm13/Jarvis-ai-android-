@@ -102,6 +102,7 @@ private fun JarvisApp(onSpeak: (String) -> Unit) {
         )
     }
     var gatewayToken by remember { mutableStateOf(SecureTokenStore.load(context)) }
+    var gatewayTestStatus by remember { mutableStateOf("") }
     var isThinking by remember { mutableStateOf(false) }
     var isCheckingUpdate by remember { mutableStateOf(false) }
     var updateStatus by remember { mutableStateOf("") }
@@ -323,6 +324,31 @@ private fun JarvisApp(onSpeak: (String) -> Unit) {
                                 singleLine = true,
                                 visualTransformation = PasswordVisualTransformation()
                             )
+                            Button(
+                                onClick = {
+                                    gatewayTestStatus = "Testing connection from the JARVIS app…"
+                                    scope.launch {
+                                        val result = withContext(Dispatchers.IO) {
+                                            runCatching { AiGatewayClient.checkHealth(gatewayUrl) }
+                                        }
+                                        gatewayTestStatus = result.fold(
+                                            onSuccess = { it },
+                                            onFailure = { error ->
+                                                "App-side connection failed: ${error.javaClass.simpleName}: ${error.message ?: "no details"}"
+                                            }
+                                        )
+                                    }
+                                },
+                                modifier = Modifier.fillMaxWidth(),
+                                shape = RoundedCornerShape(14.dp)
+                            ) { Text("Test gateway connection") }
+                            if (gatewayTestStatus.isNotBlank()) {
+                                Text(
+                                    gatewayTestStatus,
+                                    color = Color(0xFF9FC7D8),
+                                    style = MaterialTheme.typography.bodySmall
+                                )
+                            }
                         }
                     }
                 }
