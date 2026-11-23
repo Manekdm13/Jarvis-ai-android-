@@ -23,7 +23,7 @@ internal object AiGatewayClient {
             if (status !in 200..299) return "Worker health check returned HTTP $status."
             val json = JSONObject(body)
             if (!json.optBoolean("ok", false)) return "Worker responded, but health status is not OK."
-            return "Android app connected successfully. Gateway is online; authenticationConfigured=${json.optJSONObject("providers")?.let { "provider flags available" } ?: "unknown"}."
+            return "Android app connected successfully. Gateway is online; authentication configured: ${json.optBoolean("authenticationConfigured", false)}."
         } finally {
             connection.disconnect()
         }
