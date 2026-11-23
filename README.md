@@ -26,7 +26,7 @@ Native Kotlin + Jetpack Compose Android application. The current main-branch app
 - xAI/Grok provider integration. Adding an `XAI_API_KEY` Worker secret alone will not enable Grok until the Worker implements that provider.
 - Physical-device validation on the owner's Redmi Note 13.
 
-The premium dashboard UI, scholarly search module, and editable personal-profile memory are being developed in separate open pull requests; they are not yet part of main.
+The premium dark dashboard UI has merged into main. Scholarly research search and editable personal-profile memory remain in open pull requests. The Redmi Note 13 4G offline-AI device plan is documented in draft PR #19; on-device inference is still not implemented.
 
 ## Online AI gateway setup
 
