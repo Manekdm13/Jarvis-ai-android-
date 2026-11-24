@@ -217,7 +217,7 @@ export default {
         /^192\.168\./.test(hostname) || /^169\.254\./.test(hostname) ||
         /^172\.(1[6-9]|2\d|3[01])\./.test(hostname) || /^0\./.test(hostname) ||
         /^f[cd][0-9a-f:]*$/i.test(hostname) || /^fe80:/i.test(hostname);
-      if (!["https:", "http:"].includes(parsedTarget.protocol) || !hostname.includes(".") ||
+      if (!["https:", "http:"].includes(parsedTarget.protocol) || (!hostname.includes(".") || hostname.includes(":")) ||
           privateHost || parsedTarget.username || parsedTarget.password) {
         return json({ error: "Only public HTTP or HTTPS website URLs without embedded credentials are supported." }, 400);
       }
