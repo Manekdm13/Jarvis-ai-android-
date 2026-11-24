@@ -3,6 +3,7 @@ export interface Env {
   GEMINI_API_KEY?: string;
   OPENROUTER_API_KEY?: string;
   GROQ_API_KEY?: string;
+  TINYFISH_API_KEY?: string;
   GEMINI_MODEL?: string;
   OPENROUTER_MODEL?: string;
   GROQ_MODEL?: string;
@@ -176,11 +177,11 @@ export default {
         ok: true,
         service: "JARVIS AI Gateway",
         strategy: "task-aware free-first fallback",
-        providers: { gemini: Boolean(geminiApiKey(env)), openrouter: Boolean(env.OPENROUTER_API_KEY), groq: Boolean(env.GROQ_API_KEY), workers_ai: Boolean(env.AI) },
+        providers: { gemini: Boolean(geminiApiKey(env)), openrouter: Boolean(env.OPENROUTER_API_KEY), groq: Boolean(env.GROQ_API_KEY), workers_ai: Boolean(env.AI), tinyfish: Boolean(cleanSecret(env.TINYFISH_API_KEY)) },
         authenticationConfigured: Boolean(env.JARVIS_APP_TOKEN && env.JARVIS_APP_TOKEN.length >= 32),
       });
     }
-    if (request.method !== "POST" || url.pathname !== "/v1/chat") {
+    if (request.method !== "POST" || !["/v1/chat", "/v1/web-agent"].includes(url.pathname)) {
       return json({ error: "Not found" }, 404);
     }
 
@@ -191,9 +192,45 @@ export default {
       return json({ error: "Unauthorized. Check the JARVIS gateway access token." }, 401);
     }
 
-    const ip = request.headers.get("CF-Connecting-IP") || "unknown";
     const rate = await env.CHAT_LIMITER.limit({ key: providedToken });
     if (!rate.success) return json({ error: "Rate limit reached. Please wait and try again." }, 429);
+
+    if (url.pathname === "/v1/web-agent") {
+      const apiKey = cleanSecret(env.TINYFISH_API_KEY);
+      if (!apiKey) return json({ error: "TinyFish is not configured yet. Add TINYFISH_API_KEY as a Cloudflare Worker secret." }, 503);
+      let webBody: any;
+      try {
+        const raw = await request.text();
+        if (new TextEncoder().encode(raw).byteLength > 24_000) return json({ error: "Request too large" }, 413);
+        webBody = JSON.parse(raw);
+      } catch {
+        return json({ error: "Invalid JSON" }, 400);
+      }
+      const target = cleanText(webBody?.url, 2048);
+      const goal = cleanText(webBody?.goal, 6000);
+      let parsedTarget: URL;
+      try { parsedTarget = new URL(target); } catch { return json({ error: "Enter a valid website URL." }, 400); }
+      if (!["https:", "http:"].includes(parsedTarget.protocol) || !parsedTarget.hostname.includes(".")) {
+        return json({ error: "Only public HTTP or HTTPS website URLs are supported." }, 400);
+      }
+      if (!goal) return json({ error: "Describe what the web agent should do." }, 400);
+      try {
+        const agentResponse = await fetch("https://agent.tinyfish.ai/v1/automation/run", {
+          method: "POST",
+          headers: { "X-API-Key": apiKey, "Content-Type": "application/json", "Accept": "application/json" },
+          body: JSON.stringify({ url: target, goal }),
+        });
+        const rawResult = await agentResponse.text();
+        let result: any = {};
+        try { result = rawResult ? JSON.parse(rawResult) : {}; } catch { result = { text: rawResult.slice(0, 12000) }; }
+        if (!agentResponse.ok) {
+          return json({ error: `TinyFish request failed (HTTP ${agentResponse.status}).`, details: result?.error?.message || result?.message || "Check TinyFish account access and wallet." }, 502);
+        }
+        return json({ result, provider: "tinyfish", status: result?.status || "completed" });
+      } catch (error) {
+        return json({ error: "TinyFish could not complete the browser task.", details: error instanceof Error ? error.message : "Network error" }, 502);
+      }
+    }
 
     let rawBody: string;
     try { rawBody = await request.text(); }
