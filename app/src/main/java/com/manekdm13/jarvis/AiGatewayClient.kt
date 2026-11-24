@@ -70,4 +70,48 @@ internal object AiGatewayClient {
             connection.disconnect()
         }
     }
+
+    /** Runs a user-requested browser task through the authenticated Worker; TinyFish credentials stay server-side. */
+    fun runWebAgent(baseUrl: String, token: String, targetUrl: String, goal: String): String {
+        require(token.isNotBlank()) { "Enter your private gateway access token in JARVIS settings." }
+        val cleanBase = baseUrl.trim().trimEnd('/')
+        require(cleanBase.startsWith("https://")) { "Enter a valid HTTPS Worker URL in AI gateway URL." }
+        require(targetUrl.trim().startsWith("https://") || targetUrl.trim().startsWith("http://")) {
+            "Enter a website address beginning with https:// or http://."
+        }
+        require(goal.isNotBlank()) { "Describe the browser task first." }
+        val endpoint = if (cleanBase.endsWith("/v1/web-agent")) cleanBase else "$cleanBase/v1/web-agent"
+        val payload = JSONObject().put("url", targetUrl.trim()).put("goal", goal.trim())
+        val connection = (URL(endpoint).openConnection() as HttpURLConnection).apply {
+            requestMethod = "POST"
+            connectTimeout = 30_000
+            readTimeout = 180_000
+            doOutput = true
+            setRequestProperty("Content-Type", "application/json; charset=utf-8")
+            setRequestProperty("Authorization", "Bearer $token")
+        }
+        try {
+            connection.outputStream.use { it.write(payload.toString().toByteArray(Charsets.UTF_8)) }
+            val status = connection.responseCode
+            val stream = if (status in 200..299) connection.inputStream else connection.errorStream
+            val responseText = stream?.bufferedReader()?.use { it.readText() }.orEmpty()
+            val response = runCatching { JSONObject(responseText) }.getOrNull()
+            if (status !in 200..299) {
+                val message = response?.optString("error")?.takeIf { it.isNotBlank() }
+                    ?: "TinyFish web agent returned HTTP $status."
+                val details = response?.optString("details")?.takeIf { it.isNotBlank() }
+                throw IllegalStateException(if (details != null) "$message $details" else message)
+            }
+            val result = response?.opt("result")
+            return when (result) {
+                is org.json.JSONObject -> result.toString(2)
+                is org.json.JSONArray -> result.toString(2)
+                null -> response?.toString(2) ?: "TinyFish completed the task but returned no details."
+                else -> result.toString()
+            }
+        } finally {
+            connection.disconnect()
+        }
+    }
+
 }

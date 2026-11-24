@@ -7,6 +7,7 @@ Native Kotlin + Jetpack Compose Android application. The current main-branch app
 - Chat-style Android interface.
 - Android speech-recognition intent and Text-to-Speech replies (press-to-talk; no wake-word service yet).
 - HTTPS chat client for the Cloudflare Worker AI gateway.
+- TinyFish Web Agent interface and authenticated Worker proxy (requires `TINYFISH_API_KEY` as a Cloudflare Worker secret before live use).
 - Task-aware online provider routing in the Worker: Gemini, Groq, OpenRouter, and Cloudflare Workers AI. Only configured providers are attempted.
 - App-to-Worker bearer authentication. The app token is encrypted locally using Android Keystore-backed AES-GCM; provider API keys remain Worker-side secrets.
 - Device-local conversation history encrypted with Android Keystore.
