@@ -211,14 +211,14 @@ export default {
       const goal = cleanText(webBody?.goal, 6000);
       let parsedTarget: URL;
       try { parsedTarget = new URL(target); } catch { return json({ error: "Enter a valid website URL." }, 400); }
-      const hostname = parsedTarget.hostname.toLowerCase().replace(/^\\[|\\]$/g, "");
+      const hostname = parsedTarget.hostname.toLowerCase().replace(/^\[|\]$/g, "");
       const privateHost = hostname === "localhost" || hostname.endsWith(".localhost") ||
         hostname.endsWith(".internal") || hostname === "::1" ||
-        /^127\\./.test(hostname) || /^10\\./.test(hostname) ||
-        /^192\\.168\\./.test(hostname) || /^169\\.254\\./.test(hostname) ||
-        /^172\\.(1[6-9]|2\\d|3[01])\\./.test(hostname) || /^0\\./.test(hostname) ||
+        /^127\./.test(hostname) || /^10\./.test(hostname) ||
+        /^192\.168\./.test(hostname) || /^169\.254\./.test(hostname) ||
+        /^172\.(1[6-9]|2\d|3[01])\./.test(hostname) || /^0\./.test(hostname) ||
         /^f[cd][0-9a-f:]*$/i.test(hostname) || /^fe80:/i.test(hostname);
-      const ipv4Literal = /^\\d{1,3}(?:\\.\\d{1,3}){3}$/.test(hostname);
+      const ipv4Literal = /^\d{1,3}(?:\.\d{1,3}){3}$/.test(hostname);
       if (!["https:", "http:"].includes(parsedTarget.protocol) || (!hostname.includes(".") || hostname.includes(":")) ||
           privateHost || ipv4Literal || parsedTarget.username || parsedTarget.password) {
         return json({ error: "Only public HTTP or HTTPS domain URLs without embedded credentials are supported." }, 400);
@@ -236,23 +236,26 @@ export default {
           const finalParsed = new URL(finalUrl);
           const finalHost = finalParsed.hostname.toLowerCase();
           const finalPrivate = finalHost === "localhost" || finalHost.endsWith(".localhost") ||
-            finalHost.endsWith(".internal") || /^127\\./.test(finalHost) || /^10\\./.test(finalHost) ||
-            /^192\\.168\\./.test(finalHost) || /^169\\.254\\./.test(finalHost) ||
-            /^172\\.(1[6-9]|2\\d|3[01])\\./.test(finalHost) || /^0\\./.test(finalHost) ||
+            finalHost.endsWith(".internal") || /^127\./.test(finalHost) || /^10\./.test(finalHost) ||
+            /^192\.168\./.test(finalHost) || /^169\.254\./.test(finalHost) ||
+            /^172\.(1[6-9]|2\d|3[01])\./.test(finalHost) || /^0\./.test(finalHost) ||
             /^f[cd][0-9a-f:]*$/i.test(finalHost) || /^fe80:/i.test(finalHost) ||
-            /^\\d{1,3}(?:\\.\\d{1,3}){3}$/.test(finalHost);
+            /^\d{1,3}(?:\.\d{1,3}){3}$/.test(finalHost);
           if (!["https:", "http:"].includes(finalParsed.protocol) || finalPrivate ||
               finalParsed.username || finalParsed.password || !finalHost.includes(".") || finalHost.includes(":")) {
             return json({ error: "The website redirected to a restricted destination; navigation was stopped." }, 400);
           }
-          const pageData = await page.evaluate(() => ({
-            title: document.title || "",
-            text: (document.body?.innerText || "").slice(0, 14000),
-            links: Array.from(document.querySelectorAll("a[href]")).slice(0, 30).map((a) => ({
-              text: (a.textContent || "").trim().slice(0, 160),
-              href: (a as HTMLAnchorElement).href,
-            })).filter((a) => /^https?:\\/\\//i.test(a.href)),
-          }));
+          const pageData = await page.evaluate(() => {
+            const doc = (globalThis as any).document;
+            return {
+              title: doc.title || "",
+              text: (doc.body?.innerText || "").slice(0, 14000),
+              links: Array.from(doc.querySelectorAll("a[href]")).slice(0, 30).map((item: any) => ({
+                text: (item.textContent || "").trim().slice(0, 160),
+                href: item.href,
+              })).filter((item: any) => /^https?:\/\//i.test(item.href)),
+            };
+          });
           const system = [
             "You are JARVIS's read-only web research assistant.",
             "Use only the supplied webpage title, text, and links to answer the user's goal.",
@@ -260,8 +263,8 @@ export default {
             "Do not claim to click, submit forms, purchase, sign in, or perform actions. This browser mode is read-only.",
             "If the page lacks evidence, say what is missing. Be concise and distinguish page claims from verified facts.",
           ].join(" ");
-          const prompt = "User goal:\\n" + goal + "\\n\\nWebpage URL: " + finalUrl +
-            "\\nTitle: " + pageData.title + "\\n\\nUntrusted webpage text:\\n" + pageData.text;
+          const prompt = "User goal:\n" + goal + "\n\nWebpage URL: " + finalUrl +
+            "\nTitle: " + pageData.title + "\n\nUntrusted webpage text:\n" + pageData.text;
           const available: Record<Provider, boolean> = {
             gemini: Boolean(geminiApiKey(env)),
             openrouter: Boolean(env.OPENROUTER_API_KEY),
