@@ -210,12 +210,12 @@ export default {
       const goal = cleanText(webBody?.goal, 6000);
       let parsedTarget: URL;
       try { parsedTarget = new URL(target); } catch { return json({ error: "Enter a valid website URL." }, 400); }
-      const hostname = parsedTarget.hostname.toLowerCase().replace(/^\\[|\\]$/g, "");
+      const hostname = parsedTarget.hostname.toLowerCase().replace(/^\[|\]$/g, "");
       const privateHost = hostname === "localhost" || hostname.endsWith(".localhost") ||
         hostname.endsWith(".internal") || hostname === "::1" ||
-        /^127\\./.test(hostname) || /^10\\./.test(hostname) ||
-        /^192\\.168\\./.test(hostname) || /^169\\.254\\./.test(hostname) ||
-        /^172\\.(1[6-9]|2\\d|3[01])\\./.test(hostname) || /^0\\./.test(hostname) ||
+        /^127\./.test(hostname) || /^10\./.test(hostname) ||
+        /^192\.168\./.test(hostname) || /^169\.254\./.test(hostname) ||
+        /^172\.(1[6-9]|2\d|3[01])\./.test(hostname) || /^0\./.test(hostname) ||
         /^f[cd][0-9a-f:]*$/i.test(hostname) || /^fe80:/i.test(hostname);
       if (!["https:", "http:"].includes(parsedTarget.protocol) || !hostname.includes(".") ||
           privateHost || parsedTarget.username || parsedTarget.password) {
