@@ -110,6 +110,11 @@ private fun JarvisApp(onSpeak: (String) -> Unit) {
     var isThinking by remember { mutableStateOf(false) }
     var isCheckingUpdate by remember { mutableStateOf(false) }
     var updateStatus by remember { mutableStateOf("") }
+    var showWebAgentDialog by remember { mutableStateOf(false) }
+    var webAgentUrl by remember { mutableStateOf("https://") }
+    var webAgentGoal by remember { mutableStateOf("") }
+    var webAgentStatus by remember { mutableStateOf("") }
+    var isRunningWebAgent by remember { mutableStateOf(false) }
     var showSettings by remember { mutableStateOf(false) }
     var showRemember by remember { mutableStateOf(false) }
     var rememberSearch by remember { mutableStateOf("") }
@@ -549,10 +554,80 @@ private fun JarvisApp(onSpeak: (String) -> Unit) {
                                 shape = RoundedCornerShape(14.dp)
                             ) { Text(if (isThinking) "Thinking…" else "Send  ➤") }
                         }
+                        OutlinedButton(
+                            onClick = { webAgentStatus = ""; showWebAgentDialog = true },
+                            modifier = Modifier.fillMaxWidth(),
+                            enabled = !isThinking && !isRunningWebAgent,
+                            shape = RoundedCornerShape(14.dp)
+                        ) { Text("🌐  TinyFish Web Agent") }
                     }
                 }
             }
         }
+    }
+
+    if (showWebAgentDialog) {
+        AlertDialog(
+            onDismissRequest = { if (!isRunningWebAgent) showWebAgentDialog = false },
+            title = { Text("TinyFish Web Agent") },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Text("Give JARVIS a website and a specific browser task. Review the task before running it; some browser actions may submit forms or change website data.")
+                    OutlinedTextField(
+                        value = webAgentUrl,
+                        onValueChange = { webAgentUrl = it },
+                        modifier = Modifier.fillMaxWidth(),
+                        label = { Text("Starting website URL") },
+                        placeholder = { Text("https://example.com") },
+                        singleLine = true
+                    )
+                    OutlinedTextField(
+                        value = webAgentGoal,
+                        onValueChange = { webAgentGoal = it },
+                        modifier = Modifier.fillMaxWidth(),
+                        label = { Text("What should TinyFish do?") },
+                        placeholder = { Text("Find the public pricing plans and summarize them. Do not purchase anything.") },
+                        minLines = 3,
+                        maxLines = 5
+                    )
+                    if (webAgentStatus.isNotBlank()) {
+                        Text(webAgentStatus, color = Color(0xFF9FC7D8), style = MaterialTheme.typography.bodySmall)
+                    }
+                }
+            },
+            confirmButton = {
+                Button(
+                    enabled = !isRunningWebAgent && webAgentUrl.startsWith("http") && webAgentGoal.isNotBlank(),
+                    onClick = {
+                        isRunningWebAgent = true
+                        webAgentStatus = "Connecting to TinyFish…"
+                        scope.launch {
+                            val result = withContext(Dispatchers.IO) {
+                                runCatching {
+                                    AiGatewayClient.runWebAgent(gatewayUrl, gatewayToken, webAgentUrl, webAgentGoal)
+                                }
+                            }
+                            isRunningWebAgent = false
+                            result.fold(
+                                onSuccess = { output ->
+                                    showWebAgentDialog = false
+                                    record("TinyFish browser task: ${webAgentGoal.trim()}", output)
+                                },
+                                onFailure = { error ->
+                                    webAgentStatus = "Task failed: ${error.message ?: "Unknown error"}"
+                                }
+                            )
+                        }
+                    }
+                ) { Text(if (isRunningWebAgent) "Running…" else "Run task") }
+            },
+            dismissButton = {
+                OutlinedButton(
+                    enabled = !isRunningWebAgent,
+                    onClick = { showWebAgentDialog = false }
+                ) { Text("Cancel") }
+            }
+        )
     }
 
     pendingAction?.let { action ->
