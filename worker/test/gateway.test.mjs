@@ -54,6 +54,32 @@ test("authenticated chat returns a Gemini response and allows Authorization in C
   } finally { globalThis.fetch = original; }
 });
 
+test("standard GEMINI_API_KEY secret name is accepted as a Gemini alias", async () => {
+  const original = globalThis.fetch;
+  let calledKey = "";
+  globalThis.fetch = async (_url, init) => {
+    calledKey = new Headers(init?.headers).get("x-goog-api-key") || "";
+    return response({ model: "gemini-3.1-flash-lite", status: "completed", steps: [{ type: "model_output", content: [{ type: "text", text: "Alias works" }] }] });
+  };
+  try {
+    const onlyGemini = env({
+      JARVIS_AI_KEY: undefined,
+      GEMINI_API_KEY: "standard-gemini-secret",
+      OPENROUTER_API_KEY: undefined,
+      GROQ_API_KEY: undefined,
+      AI: undefined,
+    });
+    const health = await worker.fetch(new Request("https://jarvis.example/health"), onlyGemini);
+    assert.equal((await health.json()).providers.gemini, true);
+    const res = await worker.fetch(request({ message: "hello" }), onlyGemini);
+    const data = await res.json();
+    assert.equal(res.status, 200);
+    assert.equal(data.provider, "gemini");
+    assert.equal(data.reply, "Alias works");
+    assert.equal(calledKey, "standard-gemini-secret");
+  } finally { globalThis.fetch = original; }
+});
+
 test("Gemini-only configuration works without an OpenRouter key", async () => {
   const original = globalThis.fetch;
   let calledUrl = "";
