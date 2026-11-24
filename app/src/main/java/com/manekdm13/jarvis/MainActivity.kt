@@ -159,12 +159,12 @@ private fun JarvisApp(onSpeak: (String) -> Unit) {
                     isThinking = true
                     val history = buildString {
                         if (activeUserProfile.isNotBlank()) {
-                            append("USER PROFILE (saved by the user):\\n")
+                            append("USER PROFILE (saved by the user):\n")
                             append(activeUserProfile.trim())
-                            append("\\n\\n")
+                            append("\n\n")
                         }
-                        append("RECENT CONVERSATION:\\n")
-                        append(messages.takeLast(20).joinToString("\\n"))
+                        append("RECENT CONVERSATION:\n")
+                        append(messages.takeLast(20).joinToString("\n"))
                     }
                     scope.launch {
                         val answer = withContext(Dispatchers.IO) {
