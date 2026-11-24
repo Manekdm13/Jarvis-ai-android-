@@ -175,3 +175,64 @@ test("Cloudflare rate-limit binding receives the documented key object", async (
   assert.deepEqual(received, { key: token });
   assert.equal(res.status, 429);
 });
+
+
+test("TinyFish web-agent route authenticates, forwards the task, and keeps the API key server-side", async () => {
+  const original = globalThis.fetch;
+  let calledUrl = "";
+  let calledHeaders;
+  let calledBody;
+  globalThis.fetch = async (url, init) => {
+    calledUrl = String(url);
+    calledHeaders = new Headers(init?.headers);
+    calledBody = JSON.parse(String(init?.body));
+    return response({ status: "completed", result: { summary: "Found three public plans." } });
+  };
+  try {
+    const secret = "test-tinyfish-secret";
+    const res = await worker.fetch(
+      new Request("https://jarvis.example/v1/web-agent", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ url: "https://example.com/pricing", goal: "Summarize the public plans. Do not purchase anything." }),
+      }),
+      env({ TINYFISH_API_KEY: secret }),
+    );
+    const data = await res.json();
+    assert.equal(res.status, 200);
+    assert.equal(data.provider, "tinyfish");
+    assert.equal(data.result.result.summary, "Found three public plans.");
+    assert.equal(calledUrl, "https://agent.tinyfish.ai/v1/automation/run");
+    assert.equal(calledHeaders.get("X-API-Key"), secret);
+    assert.deepEqual(calledBody, {
+      url: "https://example.com/pricing",
+      goal: "Summarize the public plans. Do not purchase anything.",
+    });
+    assert.equal(JSON.stringify(data).includes(secret), false);
+  } finally { globalThis.fetch = original; }
+});
+
+test("TinyFish route fails clearly when its Worker secret is missing", async () => {
+  const res = await worker.fetch(
+    new Request("https://jarvis.example/v1/web-agent", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+      body: JSON.stringify({ url: "https://example.com", goal: "Read the homepage." }),
+    }),
+    env({ TINYFISH_API_KEY: undefined }),
+  );
+  assert.equal(res.status, 503);
+  assert.match((await res.json()).error, /TINYFISH_API_KEY/);
+});
+
+test("TinyFish route rejects invalid URL schemes", async () => {
+  const res = await worker.fetch(
+    new Request("https://jarvis.example/v1/web-agent", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+      body: JSON.stringify({ url: "file:///etc/passwd", goal: "Read this file." }),
+    }),
+    env({ TINYFISH_API_KEY: "test-tinyfish-secret" }),
+  );
+  assert.equal(res.status, 400);
+});
