@@ -249,3 +249,16 @@ test("TinyFish route rejects private network destinations", async () => {
   );
   assert.equal(res.status, 400);
 });
+
+
+test("TinyFish route rejects IPv6 literal targets", async () => {
+  const res = await worker.fetch(
+    new Request("https://jarvis.example/v1/web-agent", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+      body: JSON.stringify({ url: "http://[::1]/admin", goal: "Read the page." }),
+    }),
+    env({ TINYFISH_API_KEY: "test-tinyfish-secret" }),
+  );
+  assert.equal(res.status, 400);
+});
