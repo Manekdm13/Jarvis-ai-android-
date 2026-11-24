@@ -62,6 +62,31 @@ npx wrangler secret put OPENROUTER_API_KEY
 
 The model names can be overridden using the corresponding non-secret variables in `wrangler.toml`: `GEMINI_MODEL`, `GROQ_MODEL`, `OPENROUTER_MODEL`, and `WORKERS_AI_MODEL`. The Cloudflare `AI` binding is declared in `wrangler.toml`; it does not require an API key in the Android app.
 
+## TinyFish browser automation
+
+JARVIS exposes an authenticated browser-agent endpoint through the same Cloudflare Worker. The Android app sends a starting URL and a user-written task; the Worker forwards it to TinyFish. The TinyFish API key is never included in the APK or returned to the app.
+
+1. Create or copy a TinyFish API key from the TinyFish API keys page.
+2. Add it to the Cloudflare Worker as a secret (from the `worker` directory):
+   ```sh
+   npx wrangler secret put TINYFISH_API_KEY
+   ```
+3. Deploy the Worker after adding the secret:
+   ```sh
+   npx wrangler deploy
+   ```
+4. Open JARVIS → **TinyFish Web Agent**, enter a starting website URL and a clear task, then run it. The result is added to the conversation.
+
+API: `POST /v1/web-agent`, authenticated with the same `Authorization: Bearer YOUR_JARVIS_APP_TOKEN` header as chat. JSON body:
+
+```json
+{ "url": "https://example.com", "goal": "Summarize the public pricing plans. Do not purchase anything." }
+```
+
+The Worker calls TinyFish's synchronous automation endpoint and returns the provider result. Browser-agent steps are metered against the TinyFish wallet (current account rates are shown in the TinyFish dashboard; the connected account currently reports $0.016 per step). Search/fetch may have different rates. Use specific, read-only goals when possible. Do not ask the agent to submit payments, purchase items, send messages, delete data, or change account/security settings without reviewing the exact action and obtaining fresh user confirmation.
+
+The Worker health endpoint reports only whether the TinyFish secret is configured; it never exposes the key. If the secret is missing, `/v1/web-agent` returns HTTP 503 with setup guidance.
+
 ## Security and limits
 
 - The Worker rejects chat requests without a matching bearer token of at least 32 characters.
