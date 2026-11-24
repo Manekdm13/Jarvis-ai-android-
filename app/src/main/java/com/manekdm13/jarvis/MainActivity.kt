@@ -91,6 +91,10 @@ private fun JarvisApp(onSpeak: (String) -> Unit) {
     val context = LocalContext.current
     val clipboardManager = LocalClipboardManager.current
     val memory = remember(context) { ConversationMemory(context.applicationContext) }
+    val profileMemory = remember(context) { UserProfileMemory(context.applicationContext) }
+    var userProfile by remember(profileMemory) { mutableStateOf(profileMemory.load()) }
+    var activeUserProfile by remember(profileMemory) { mutableStateOf(profileMemory.loadSaved()) }
+    var profileStatus by remember { mutableStateOf("") }
     var input by remember { mutableStateOf("") }
     val settings = remember(context) {
         context.getSharedPreferences("jarvis_settings", Context.MODE_PRIVATE)
@@ -153,7 +157,15 @@ private fun JarvisApp(onSpeak: (String) -> Unit) {
                     record(question, "Online AI is not configured yet. Paste your Cloudflare Worker URL into the AI gateway URL field above.")
                 } else {
                     isThinking = true
-                    val history = messages.takeLast(20).joinToString("\n")
+                    val history = buildString {
+                        if (activeUserProfile.isNotBlank()) {
+                            append("USER PROFILE (saved by the user):\\n")
+                            append(activeUserProfile.trim())
+                            append("\\n\\n")
+                        }
+                        append("RECENT CONVERSATION:\\n")
+                        append(messages.takeLast(20).joinToString("\\n"))
+                    }
                     scope.launch {
                         val answer = withContext(Dispatchers.IO) {
                             runCatching { AiGatewayClient.reply(gatewayUrl, gatewayToken, question, history) }
@@ -348,6 +360,63 @@ private fun JarvisApp(onSpeak: (String) -> Unit) {
                                     color = Color(0xFF9FC7D8),
                                     style = MaterialTheme.typography.bodySmall
                                 )
+                            }
+                        }
+                    }
+                    Card(
+                        shape = RoundedCornerShape(18.dp),
+                        colors = androidx.compose.material3.CardDefaults.cardColors(containerColor = Color(0xFF101C2D))
+                    ) {
+                        Column(
+                            modifier = Modifier.fillMaxWidth().padding(14.dp),
+                            verticalArrangement = Arrangement.spacedBy(10.dp)
+                        ) {
+                            Text(
+                                "PERSONAL PROFILE",
+                                color = Color(0xFF70DCEB),
+                                style = MaterialTheme.typography.labelMedium
+                            )
+                            Text(
+                                "A suggested profile is shown for review. It is not sent until you tap Save. The saved version is encrypted on this device and included with online chat requests. Changes take effect after saving.",
+                                color = Color(0xFF9DB5CD),
+                                style = MaterialTheme.typography.bodySmall
+                            )
+                            OutlinedTextField(
+                                value = userProfile,
+                                onValueChange = { userProfile = it; profileStatus = "" },
+                                modifier = Modifier.fillMaxWidth(),
+                                label = { Text("Your information and goals") },
+                                minLines = 5,
+                                maxLines = 10
+                            )
+                            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                Button(
+                                    onClick = {
+                                        val profileToSave = userProfile.trim()
+                                        runCatching { profileMemory.save(profileToSave) }
+                                            .onSuccess {
+                                                userProfile = profileToSave
+                                                activeUserProfile = profileToSave
+                                                profileStatus = "Personal profile saved securely and enabled for online chat."
+                                            }
+                                            .onFailure { error ->
+                                                profileStatus = error.message ?: "Could not save profile."
+                                            }
+                                    },
+                                    shape = RoundedCornerShape(12.dp)
+                                ) { Text("Save profile") }
+                                OutlinedButton(
+                                    onClick = {
+                                        profileMemory.clear()
+                                        userProfile = ""
+                                        activeUserProfile = ""
+                                        profileStatus = "Saved profile cleared from this device and removed from online context."
+                                    },
+                                    shape = RoundedCornerShape(12.dp)
+                                ) { Text("Clear") }
+                            }
+                            if (profileStatus.isNotBlank()) {
+                                Text(profileStatus, color = Color(0xFF9FC7D8), style = MaterialTheme.typography.bodySmall)
                             }
                         }
                     }
