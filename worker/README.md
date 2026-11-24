@@ -62,7 +62,22 @@ npx wrangler secret put OPENROUTER_API_KEY
 
 The model names can be overridden using the corresponding non-secret variables in `wrangler.toml`: `GEMINI_MODEL`, `GROQ_MODEL`, `OPENROUTER_MODEL`, and `WORKERS_AI_MODEL`. The Cloudflare `AI` binding is declared in `wrangler.toml`; it does not require an API key in the Android app.
 
-## TinyFish browser automation
+## Cloudflare Browser Run web research (default)
+
+The authenticated `POST /v1/web-agent` endpoint uses Cloudflare Browser Run when the Worker has its `BROWSER` binding. This avoids a separate TinyFish API key and keeps browser execution inside the Cloudflare account. The current fallback is deliberately **read-only**: it opens a public website, extracts its title, readable text, and links, then uses the configured JARVIS model provider to answer the user's research goal. It does not click buttons, submit forms, sign in, purchase items, or change website data.
+
+The binding is configured in `wrangler.toml`:
+
+```toml
+[browser]
+binding = "BROWSER"
+```
+
+The Worker uses `@cloudflare/puppeteer` to connect to Browser Run. Cloudflare documents Browser Run's free included usage and paid overage; check the [current Browser Run pricing](https://developers.cloudflare.com/browser-run/pricing/) before increasing usage. See the [Cloudflare Browser Run integration guide](https://developers.cloudflare.com/browser-run/) for limits and setup.
+
+Health reports `providers.cloudflare_browser` as a boolean binding-availability flag. It does not expose credentials. The endpoint continues to require the same JARVIS bearer token and rate limiter as chat.
+
+## Optional TinyFish browser automation (legacy fallback)
 
 JARVIS exposes an authenticated browser-agent endpoint through the same Cloudflare Worker. The Android app sends a starting URL and a user-written task; the Worker forwards it to TinyFish. The TinyFish API key is never included in the APK or returned to the app.
 
