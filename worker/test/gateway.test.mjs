@@ -177,6 +177,38 @@ test("Cloudflare rate-limit binding receives the documented key object", async (
 });
 
 
+test("health reports Cloudflare Browser Run binding without exposing credentials", async () => {
+  const res = await worker.fetch(new Request("https://jarvis.example/health"), env({ BROWSER: {} }));
+  const data = await res.json();
+  assert.equal(res.status, 200);
+  assert.equal(data.providers.cloudflare_browser, true);
+});
+
+test("web-agent rejects literal public IPs before launching a browser", async () => {
+  const res = await worker.fetch(
+    new Request("https://jarvis.example/v1/web-agent", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+      body: JSON.stringify({ url: "https://8.8.8.8/", goal: "Read this page." }),
+    }),
+    env({ BROWSER: {} }),
+  );
+  assert.equal(res.status, 400);
+});
+
+test("web-agent reports missing browser and TinyFish configuration clearly", async () => {
+  const res = await worker.fetch(
+    new Request("https://jarvis.example/v1/web-agent", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+      body: JSON.stringify({ url: "https://example.com/", goal: "Read this page." }),
+    }),
+    env({ BROWSER: undefined, TINYFISH_API_KEY: undefined }),
+  );
+  assert.equal(res.status, 503);
+  assert.match((await res.json()).error, /Cloudflare Browser Run binding/);
+});
+
 test("TinyFish web-agent route authenticates, forwards the task, and keeps the API key server-side", async () => {
   const original = globalThis.fetch;
   let calledUrl = "";
