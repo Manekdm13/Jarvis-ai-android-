@@ -107,6 +107,9 @@ private fun JarvisApp(onSpeak: (String) -> Unit) {
     var isCheckingUpdate by remember { mutableStateOf(false) }
     var updateStatus by remember { mutableStateOf("") }
     var showSettings by remember { mutableStateOf(false) }
+    var showRemember by remember { mutableStateOf(false) }
+    var rememberSearch by remember { mutableStateOf("") }
+    var memoryEntries by remember(memory) { mutableStateOf(memory.load()) }
     val scope = rememberCoroutineScope()
     var pendingAction by remember { mutableStateOf<PendingPhoneAction?>(null) }
     var messages by remember(memory) {
@@ -120,6 +123,7 @@ private fun JarvisApp(onSpeak: (String) -> Unit) {
         val updated = (messages + "YOU: $question" + "JARVIS: $reply").takeLast(100)
         messages = updated
         memory.save(updated)
+        memoryEntries = updated
         onSpeak(reply)
     }
 
@@ -289,7 +293,11 @@ private fun JarvisApp(onSpeak: (String) -> Unit) {
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = androidx.compose.ui.Alignment.CenterVertically
                 ) {
-                    Text("CONVERSATION", color = Color(0xFF8EAAC6), style = MaterialTheme.typography.labelMedium)
+                    Text(if (showRemember) "REMEMBER" else "CONVERSATION", color = Color(0xFF8EAAC6), style = MaterialTheme.typography.labelMedium)
+                    TextButton(onClick = {
+                        showRemember = !showRemember
+                        if (showRemember) memoryEntries = memory.load()
+                    }) { Text(if (showRemember) "Back to chat" else "Remember") }
                     TextButton(onClick = { showSettings = !showSettings }) {
                         Text(if (showSettings) "Hide settings" else "Connection settings")
                     }
@@ -357,6 +365,50 @@ private fun JarvisApp(onSpeak: (String) -> Unit) {
                     Text(updateStatus, color = Color(0xFF9FC7D8), style = MaterialTheme.typography.bodySmall)
                 }
 
+                if (showRemember) {
+                    Card(
+                        shape = RoundedCornerShape(24.dp),
+                        colors = androidx.compose.material3.CardDefaults.cardColors(containerColor = Color(0xCC101B2B)),
+                        modifier = Modifier.weight(1f).fillMaxWidth()
+                    ) {
+                        Column(modifier = Modifier.fillMaxSize().padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
+                                Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                                    Text("YOUR MEMORY", color = Color(0xFF70DCEB), style = MaterialTheme.typography.labelMedium)
+                                    Text("${memoryEntries.size} saved messages", color = Color(0xFFEAF4FF), style = MaterialTheme.typography.titleLarge)
+                                }
+                                TextButton(onClick = { memoryEntries = memory.load() }) { Text("Refresh") }
+                            }
+                            Text("Your conversation history is encrypted on this device.", color = Color(0xFF9DB5CD), style = MaterialTheme.typography.bodySmall)
+                            OutlinedTextField(
+                                value = rememberSearch,
+                                onValueChange = { rememberSearch = it },
+                                modifier = Modifier.fillMaxWidth(),
+                                singleLine = true,
+                                placeholder = { Text("Search remembered conversations…") },
+                                label = { Text("Search memory") }
+                            )
+                            val filteredMemory = memoryEntries.asReversed().filter { it.contains(rememberSearch.trim(), ignoreCase = true) }
+                            if (filteredMemory.isEmpty()) {
+                                Box(modifier = Modifier.fillMaxWidth().weight(1f), contentAlignment = androidx.compose.ui.Alignment.Center) {
+                                    Text(if (rememberSearch.isBlank()) "No saved conversations yet. Your chats will appear here." else "No memories match your search.", color = Color(0xFF9DB5CD), style = MaterialTheme.typography.bodyMedium)
+                                }
+                            } else {
+                                LazyColumn(modifier = Modifier.weight(1f).fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(9.dp)) {
+                                    items(filteredMemory) { entry ->
+                                        val isJarvisEntry = entry.startsWith("JARVIS:")
+                                        Surface(shape = RoundedCornerShape(16.dp), color = if (isJarvisEntry) Color(0xFF172B40) else Color(0xFF123344), modifier = Modifier.fillMaxWidth()) {
+                                            Column(modifier = Modifier.padding(13.dp), verticalArrangement = Arrangement.spacedBy(5.dp)) {
+                                                Text(if (isJarvisEntry) "JARVIS RESPONSE" else "YOUR MESSAGE", color = if (isJarvisEntry) Color(0xFF70DCEB) else Color(0xFF9DBDFF), style = MaterialTheme.typography.labelSmall)
+                                                Text(entry.substringAfter(":"), color = Color(0xFFEAF4FF), style = MaterialTheme.typography.bodyMedium)
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                } else {
                 Card(
                     shape = RoundedCornerShape(24.dp),
                     colors = androidx.compose.material3.CardDefaults.cardColors(containerColor = Color(0xCC101B2B)),
@@ -423,6 +475,7 @@ private fun JarvisApp(onSpeak: (String) -> Unit) {
                             }
                         }
                     }
+                }
                 }
 
                 Card(
