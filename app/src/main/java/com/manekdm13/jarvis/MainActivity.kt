@@ -111,6 +111,9 @@ private fun JarvisApp(onSpeak: (String) -> Unit) {
     var isCheckingUpdate by remember { mutableStateOf(false) }
     var updateStatus by remember { mutableStateOf("") }
     var showSettings by remember { mutableStateOf(false) }
+    var showRemember by remember { mutableStateOf(false) }
+    var rememberSearch by remember { mutableStateOf("") }
+    var memoryEntries by remember(memory) { mutableStateOf(memory.load()) }
     val scope = rememberCoroutineScope()
     var pendingAction by remember { mutableStateOf<PendingPhoneAction?>(null) }
     var messages by remember(memory) {
@@ -124,6 +127,7 @@ private fun JarvisApp(onSpeak: (String) -> Unit) {
         val updated = (messages + "YOU: $question" + "JARVIS: $reply").takeLast(100)
         messages = updated
         memory.save(updated)
+        memoryEntries = updated
         onSpeak(reply)
     }
 
@@ -301,7 +305,8 @@ private fun JarvisApp(onSpeak: (String) -> Unit) {
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = androidx.compose.ui.Alignment.CenterVertically
                 ) {
-                    Text("CONVERSATION", color = Color(0xFF8EAAC6), style = MaterialTheme.typography.labelMedium)
+                    Text(if (showRemember) "REMEMBER" else "CONVERSATION", color = Color(0xFF8EAAC6), style = MaterialTheme.typography.labelMedium)
+                    TextButton(onClick = { showRemember = !showRemember; if (showRemember) { memoryEntries = memory.load(); showSettings = false } }) { Text(if (showRemember) "Back to chat" else "Remember") }
                     TextButton(onClick = { showSettings = !showSettings }) {
                         Text(if (showSettings) "Hide settings" else "Connection settings")
                     }
@@ -363,69 +368,83 @@ private fun JarvisApp(onSpeak: (String) -> Unit) {
                             }
                         }
                     }
-                    Card(
-                        shape = RoundedCornerShape(18.dp),
-                        colors = androidx.compose.material3.CardDefaults.cardColors(containerColor = Color(0xFF101C2D))
-                    ) {
-                        Column(
-                            modifier = Modifier.fillMaxWidth().padding(14.dp),
-                            verticalArrangement = Arrangement.spacedBy(10.dp)
-                        ) {
-                            Text(
-                                "PERSONAL PROFILE",
-                                color = Color(0xFF70DCEB),
-                                style = MaterialTheme.typography.labelMedium
-                            )
-                            Text(
-                                "A suggested profile is shown for review. It is not sent until you tap Save. The saved version is encrypted on this device and included with online chat requests. Changes take effect after saving.",
-                                color = Color(0xFF9DB5CD),
-                                style = MaterialTheme.typography.bodySmall
-                            )
-                            OutlinedTextField(
-                                value = userProfile,
-                                onValueChange = { userProfile = it; profileStatus = "" },
-                                modifier = Modifier.fillMaxWidth(),
-                                label = { Text("Your information and goals") },
-                                minLines = 5,
-                                maxLines = 10
-                            )
-                            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                Button(
-                                    onClick = {
-                                        val profileToSave = userProfile.trim()
-                                        runCatching { profileMemory.save(profileToSave) }
-                                            .onSuccess {
-                                                userProfile = profileToSave
-                                                activeUserProfile = profileToSave
-                                                profileStatus = "Personal profile saved securely and enabled for online chat."
-                                            }
-                                            .onFailure { error ->
-                                                profileStatus = error.message ?: "Could not save profile."
-                                            }
-                                    },
-                                    shape = RoundedCornerShape(12.dp)
-                                ) { Text("Save profile") }
-                                OutlinedButton(
-                                    onClick = {
-                                        profileMemory.clear()
-                                        userProfile = ""
-                                        activeUserProfile = ""
-                                        profileStatus = "Saved profile cleared from this device and removed from online context."
-                                    },
-                                    shape = RoundedCornerShape(12.dp)
-                                ) { Text("Clear") }
-                            }
-                            if (profileStatus.isNotBlank()) {
-                                Text(profileStatus, color = Color(0xFF9FC7D8), style = MaterialTheme.typography.bodySmall)
-                            }
-                        }
-                    }
+
                 }
 
                 if (updateStatus.isNotBlank()) {
                     Text(updateStatus, color = Color(0xFF9FC7D8), style = MaterialTheme.typography.bodySmall)
                 }
 
+                if (showRemember) {
+                    Card(
+                        shape = RoundedCornerShape(24.dp),
+                        colors = androidx.compose.material3.CardDefaults.cardColors(containerColor = Color(0xCC101B2B)),
+                        modifier = Modifier.weight(1f).fillMaxWidth()
+                    ) {
+                        LazyColumn(
+                            modifier = Modifier.fillMaxSize().padding(14.dp),
+                            verticalArrangement = Arrangement.spacedBy(12.dp)
+                        ) {
+                            item {
+                                Column(verticalArrangement = Arrangement.spacedBy(9.dp)) {
+                                    Text("PERSONAL PROFILE", color = Color(0xFF70DCEB), style = MaterialTheme.typography.labelMedium)
+                                    Text("Review and edit what JARVIS remembers about you. Nothing is sent to online AI until you save. The saved profile is encrypted on this device and included with online chat requests.", color = Color(0xFF9DB5CD), style = MaterialTheme.typography.bodySmall)
+                                    OutlinedTextField(
+                                        value = userProfile,
+                                        onValueChange = { userProfile = it; profileStatus = "" },
+                                        modifier = Modifier.fillMaxWidth(),
+                                        label = { Text("Your information and goals") },
+                                        minLines = 5,
+                                        maxLines = 10
+                                    )
+                                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                        Button(onClick = {
+                                            val profileToSave = userProfile.trim()
+                                            runCatching { profileMemory.save(profileToSave) }
+                                                .onSuccess {
+                                                    userProfile = profileToSave
+                                                    activeUserProfile = profileToSave
+                                                    profileStatus = "Personal profile saved securely and enabled for online chat."
+                                                }
+                                                .onFailure { error -> profileStatus = error.message ?: "Could not save profile." }
+                                        }, shape = RoundedCornerShape(12.dp)) { Text("Save profile") }
+                                        OutlinedButton(onClick = {
+                                            profileMemory.clear()
+                                            userProfile = ""
+                                            activeUserProfile = ""
+                                            profileStatus = "Saved profile cleared from this device and removed from online context."
+                                        }, shape = RoundedCornerShape(12.dp)) { Text("Clear") }
+                                    }
+                                    if (profileStatus.isNotBlank()) Text(profileStatus, color = Color(0xFF9FC7D8), style = MaterialTheme.typography.bodySmall)
+                                    Surface(shape = RoundedCornerShape(14.dp), color = Color(0xFF142A3B), modifier = Modifier.fillMaxWidth()) {
+                                        Text(if (activeUserProfile.isBlank()) "Profile status: not saved" else "Profile status: saved and active for online chat", modifier = Modifier.padding(12.dp), color = Color(0xFF9DB5CD), style = MaterialTheme.typography.bodySmall)
+                                    }
+                                }
+                            }
+                            item {
+                                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                                    Text("CONVERSATION MEMORY", color = Color(0xFF70DCEB), style = MaterialTheme.typography.labelMedium)
+                                    Text("${memoryEntries.size} encrypted messages stored on this device", color = Color(0xFF9DB5CD), style = MaterialTheme.typography.bodySmall)
+                                    OutlinedTextField(value = rememberSearch, onValueChange = { rememberSearch = it }, modifier = Modifier.fillMaxWidth(), singleLine = true, placeholder = { Text("Search remembered conversations…") }, label = { Text("Search memory") })
+                                }
+                            }
+                            val filteredMemory = memoryEntries.asReversed().filter { it.contains(rememberSearch.trim(), ignoreCase = true) }
+                            if (filteredMemory.isEmpty()) {
+                                item { Text(if (rememberSearch.isBlank()) "No saved conversations yet. Your chats will appear here." else "No memories match your search.", color = Color(0xFF9DB5CD), style = MaterialTheme.typography.bodyMedium) }
+                            } else {
+                                items(filteredMemory) { entry ->
+                                    val isJarvisEntry = entry.startsWith("JARVIS:")
+                                    Surface(shape = RoundedCornerShape(16.dp), color = if (isJarvisEntry) Color(0xFF172B40) else Color(0xFF123344), modifier = Modifier.fillMaxWidth()) {
+                                        Column(modifier = Modifier.padding(13.dp), verticalArrangement = Arrangement.spacedBy(5.dp)) {
+                                            Text(if (isJarvisEntry) "JARVIS RESPONSE" else "YOUR MESSAGE", color = if (isJarvisEntry) Color(0xFF70DCEB) else Color(0xFF9DBDFF), style = MaterialTheme.typography.labelSmall)
+                                            Text(entry.substringAfter(":"), color = Color(0xFFEAF4FF), style = MaterialTheme.typography.bodyMedium)
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                } else {
                 Card(
                     shape = RoundedCornerShape(24.dp),
                     colors = androidx.compose.material3.CardDefaults.cardColors(containerColor = Color(0xCC101B2B)),
@@ -492,6 +511,7 @@ private fun JarvisApp(onSpeak: (String) -> Unit) {
                             }
                         }
                     }
+                }
                 }
 
                 Card(
