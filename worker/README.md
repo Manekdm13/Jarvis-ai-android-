@@ -11,7 +11,7 @@ The provider order is task-aware. Unconfigured providers are skipped, and the Wo
 
 Current default model identifiers are configured in `wrangler.toml`:
 
-- Gemini: `gemini-3.1-flash-lite` (Worker secret: `JARVIS_AI_KEY`).
+- Gemini: `gemini-3.1-flash-lite` (Worker secret: `JARVIS_AI_KEY`; `GEMINI_API_KEY` is also accepted as an alias).
 - Groq: `openai/gpt-oss-20b` (optional Worker secret: `GROQ_API_KEY`).
 - OpenRouter: `openrouter/free` (optional Worker secret: `OPENROUTER_API_KEY`).
 - Cloudflare Workers AI: `@cf/meta/llama-3.1-8b-instruct` using the `AI` binding.
@@ -34,7 +34,7 @@ Provider availability, rate limits, quotas, and pricing depend on the provider a
    ```sh
    npx wrangler secret put JARVIS_AI_KEY
    ```
-   Paste the key only into the secure Wrangler prompt.
+   Paste the key only into the secure Wrangler prompt. The Worker also accepts the standard name `GEMINI_API_KEY`; if you already saved the key under that name, you do not need to add it again.
 4. Generate a separate random app token of at least 32 characters:
    ```sh
    node -e "console.log(require('node:crypto').randomBytes(32).toString('hex'))"
