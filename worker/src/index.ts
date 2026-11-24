@@ -1,5 +1,6 @@
 export interface Env {
   JARVIS_AI_KEY?: string;
+  GEMINI_API_KEY?: string;
   OPENROUTER_API_KEY?: string;
   GROQ_API_KEY?: string;
   GEMINI_MODEL?: string;
@@ -37,6 +38,11 @@ function cleanSecret(value?: string): string {
 }
 
 /** Compare bearer tokens without returning early on the first differing byte. */
+/** Accept both the documented JARVIS name and the standard Gemini secret name. */
+function geminiApiKey(env: Env): string {
+  return cleanSecret(env.JARVIS_AI_KEY || env.GEMINI_API_KEY);
+}
+
 function tokenMatches(provided: string, expected: string): boolean {
   const encoder = new TextEncoder();
   const a = encoder.encode(provided);
@@ -62,7 +68,7 @@ async function askGemini(env: Env, system: string, prompt: string): Promise<{ re
     method: "POST",
     headers: {
       "Content-Type": "application/json",
-      "x-goog-api-key": cleanSecret(env.JARVIS_AI_KEY),
+      "x-goog-api-key": geminiApiKey(env),
     },
     body: JSON.stringify({
       model,
@@ -170,7 +176,7 @@ export default {
         ok: true,
         service: "JARVIS AI Gateway",
         strategy: "task-aware free-first fallback",
-        providers: { gemini: Boolean(env.JARVIS_AI_KEY), openrouter: Boolean(env.OPENROUTER_API_KEY), groq: Boolean(env.GROQ_API_KEY), workers_ai: Boolean(env.AI) },
+        providers: { gemini: Boolean(geminiApiKey(env)), openrouter: Boolean(env.OPENROUTER_API_KEY), groq: Boolean(env.GROQ_API_KEY), workers_ai: Boolean(env.AI) },
         authenticationConfigured: Boolean(env.JARVIS_APP_TOKEN && env.JARVIS_APP_TOKEN.length >= 32),
       });
     }
@@ -225,7 +231,7 @@ export default {
       "User message:\n" + message;
 
     const available: Record<Provider, boolean> = {
-      gemini: Boolean(env.JARVIS_AI_KEY),
+      gemini: Boolean(geminiApiKey(env)),
       openrouter: Boolean(env.OPENROUTER_API_KEY),
       groq: Boolean(env.GROQ_API_KEY),
       workers_ai: Boolean(env.AI),
