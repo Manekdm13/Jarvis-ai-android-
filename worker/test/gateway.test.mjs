@@ -294,3 +294,10 @@ test("TinyFish route rejects IPv6 literal targets", async () => {
   );
   assert.equal(res.status, 400);
 });
+
+
+test("gateway token accepts harmless surrounding whitespace from secret paste", async () => {
+  const wrappedToken = `  \n${token}\r\n  `;
+  const res = await worker.fetch(request({ message: "hello" }), env({ JARVIS_APP_TOKEN: wrappedToken }));
+  assert.equal(res.status, 200);
+});
