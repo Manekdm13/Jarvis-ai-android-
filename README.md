@@ -1,37 +1,38 @@
 # JARVIS Android — phone-first assistant prototype
 
-Native Kotlin + Jetpack Compose Android application. The current main-branch app version is **0.2.0**. This is an evolving prototype, not yet a complete hands-free or full-device-control assistant.
+Native Kotlin + Jetpack Compose Android application. The current main-branch app version is **0.2.0**. JARVIS is an evolving prototype, not yet a complete offline, hands-free, or full-device-control assistant.
 
 ## Verified capabilities on main
 
+- Premium dark dashboard with an animated JARVIS core.
 - Chat-style Android interface.
 - Android speech-recognition intent and Text-to-Speech replies (press-to-talk; no wake-word service yet).
 - HTTPS chat client for the Cloudflare Worker AI gateway.
-- TinyFish Web Agent interface and authenticated Worker proxy (requires `TINYFISH_API_KEY` as a Cloudflare Worker secret before live use).
 - Task-aware online provider routing in the Worker: Gemini, Groq, OpenRouter, and Cloudflare Workers AI. Only configured providers are attempted.
-- App-to-Worker bearer authentication. The app token is encrypted locally using Android Keystore-backed AES-GCM; provider API keys remain Worker-side secrets.
-- Device-local conversation history encrypted with Android Keystore.
+- App-to-Worker bearer authentication. The app token is stored locally with Android Keystore-backed AES-GCM encryption; provider API keys remain Worker-side secrets.
+- Gateway connection test in the app. It checks HTTPS reachability and compares a short one-way token fingerprint without displaying the token itself.
+- Device-local conversation history encrypted with Android Keystore, with a searchable **Remember** screen.
+- Opt-in encrypted personal profile. The suggested profile is display-only until the owner explicitly saves it; only the saved profile is included in online chat context. It can be edited or cleared.
+- User-directed web research through the authenticated Worker proxy. Cloudflare Browser Run is the default read-only public-page research path; the optional TinyFish integration is a legacy fallback and requires its own Worker secret.
 - Starter Android phone actions prepared as intents and gated by a separate, one-time in-app approval. This is not general screen automation.
 - In-app **Check for updates** control. It checks the latest GitHub release, downloads the APK, and opens Android's package installer. Android still requires the owner to approve installation; JARVIS does not silently install updates.
 - Signed release workflow and published [JARVIS v0.2.0 APK](https://github.com/Manekdm13/Jarvis-ai-android-/releases/tag/v0.2.0).
 
 ## Current limitations / not implemented on main
 
-- **Offline on-device AI:** not implemented. Cloudflare Workers AI is a cloud service and requires internet; it is not an offline fallback.
+- **Offline on-device AI:** not implemented. Cloudflare Workers AI is an online service and is not an offline fallback. The Redmi Note 13 4G model/runtime plan is still in draft PR [#19](https://github.com/Manekdm13/Jarvis-ai-android-/pull/19).
 - **Full phone control:** no general-purpose AccessibilityService automation for reading screen elements, tapping, scrolling, or typing.
 - Wake-word / always-listening service.
 - Notification listener and notification summarisation.
 - Complete local reminder/background task manager.
-- Scholarship application workspace and browser automation.
+- Scholarship application workspace.
 - GeoGuessr screenshot analysis and geography training.
-- xAI/Grok provider integration. Adding an `XAI_API_KEY` Worker secret alone will not enable Grok until the Worker implements that provider.
-- Physical-device validation on the owner's Redmi Note 13.
-
-The premium dark dashboard UI has merged into main. Scholarly research search and editable personal-profile memory remain in open pull requests. The Redmi Note 13 4G offline-AI device plan is documented in draft PR #19; on-device inference is still not implemented.
+- xAI/Grok provider integration. Adding an `XAI_API_KEY` Worker secret alone will not enable Grok; provider code, routing, health reporting, and tests are required.
+- Physical-device validation on the owner's Redmi Note 13 4G.
 
 ## Online AI gateway setup
 
-See [worker/README.md](worker/README.md) for Cloudflare deployment, provider secrets, bearer-token setup, routing order, and privacy notes. The presence of Worker source code and passing CI tests does not by itself prove that a live Worker has been deployed or that live provider secrets are configured.
+See [worker/README.md](worker/README.md) for Cloudflare deployment, provider secrets, bearer-token setup, routing order, Browser Run configuration, and privacy notes. The presence of Worker source code and passing CI tests does not by itself prove that a live Worker has been deployed or that live provider secrets are configured.
 
 ## Permission and approval policy
 
@@ -40,10 +41,11 @@ See [worker/README.md](worker/README.md) for Cloudflare deployment, provider sec
 - Every supported consequential phone action requires a separate **Approve once** tap; **Deny** cancels it.
 - Sensitive actions such as sending, posting, deleting, purchases, changing security settings, or transmitting personal data must receive a fresh confirmation immediately before execution.
 - No permission bypass, silent privilege escalation, hidden recording, or covert background control.
+- The current Browser Run research path is read-only; it does not sign in, submit forms, purchase items, or change website data.
 
 ## Privacy and security
 
-Conversation history and the app's gateway bearer token are stored locally using Android Keystore-backed encryption. Provider API keys must never be placed in Android source code, APK assets, logs, or GitHub files; store them as Cloudflare Worker secrets. Online chat sends the message and recent conversation context to the configured provider, so do not send passwords, OTPs, or other secrets.
+Conversation history, the optional personal profile, and the app's gateway bearer token are stored locally using Android Keystore-backed encryption. Provider API keys must never be placed in Android source code, APK assets, logs, or GitHub files; store them as Cloudflare Worker secrets. Online chat sends the message and recent conversation context, including a saved profile if enabled, to the configured provider. Do not send passwords, OTPs, or other secrets.
 
 ## Build and release
 
