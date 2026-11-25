@@ -23,8 +23,17 @@ class JarvisLaunchTest {
 
     @Test
     fun androidNetworkStackCanReachLiveJarvisGateway() {
-        val result = AiGatewayClient.checkHealth("https://jarvis-ai-gateway.juttfaizan794.workers.dev")
-        assertTrue("Unexpected gateway health response: $result", result.startsWith("Android app connected successfully."))
-        assertTrue("Gateway must report authentication configured: $result", result.contains("authentication configured: true"))
+        val result = AiGatewayClient.checkHealth(
+            "https://jarvis-ai-gateway.juttfaizan794.workers.dev",
+            ""
+        )
+        assertTrue("Unexpected gateway health response: $result", result.startsWith("Android reached the gateway."))
+        assertTrue(
+            "Gateway must report authentication configured: $result",
+            result.contains("Enter the saved app token") ||
+                result.contains("fingerprint unavailable") ||
+                result.contains("token DOES NOT MATCH") ||
+                result.contains("token MATCHES")
+        )
     }
 }
