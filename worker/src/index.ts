@@ -41,6 +41,12 @@ function cleanSecret(value?: string): string {
   return (value || "").replace(/[\s\uFEFF]+/g, "").replace(/^(["\'])(.*)\1$/, "$2");
 }
 
+/** Short one-way fingerprint for diagnosing token mismatches without exposing the token. */
+async function tokenFingerprint(value: string): Promise<string> {
+  const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(value));
+  return Array.from(new Uint8Array(digest).slice(0, 8), byte => byte.toString(16).padStart(2, "0")).join("");
+}
+
 /** Compare bearer tokens without returning early on the first differing byte. */
 /** Accept both the documented JARVIS name and the standard Gemini secret name. */
 function geminiApiKey(env: Env): string {
@@ -182,6 +188,8 @@ export default {
         strategy: "task-aware free-first fallback",
         providers: { gemini: Boolean(geminiApiKey(env)), openrouter: Boolean(env.OPENROUTER_API_KEY), groq: Boolean(env.GROQ_API_KEY), workers_ai: Boolean(env.AI), cloudflare_browser: Boolean(env.BROWSER), tinyfish: Boolean(cleanSecret(env.TINYFISH_API_KEY)) },
         authenticationConfigured: cleanSecret(env.JARVIS_APP_TOKEN).length >= 32,
+        appTokenFingerprint: cleanSecret(env.JARVIS_APP_TOKEN).length >= 32
+          ? await tokenFingerprint(cleanSecret(env.JARVIS_APP_TOKEN)) : null,
       });
     }
     if (request.method !== "POST" || !["/v1/chat", "/v1/web-agent"].includes(url.pathname)) {
@@ -190,7 +198,7 @@ export default {
 
     const expectedToken = cleanSecret(env.JARVIS_APP_TOKEN);
     const authorization = request.headers.get("Authorization") || "";
-    const providedToken = authorization.startsWith("Bearer ") ? authorization.slice(7).trim() : "";
+    const providedToken = authorization.startsWith("Bearer ") ? cleanSecret(authorization.slice(7)) : "";
     if (!tokenMatches(providedToken, expectedToken)) {
       return json({ error: "Unauthorized. Check the JARVIS gateway access token." }, 401);
     }
