@@ -181,14 +181,14 @@ export default {
         service: "JARVIS AI Gateway",
         strategy: "task-aware free-first fallback",
         providers: { gemini: Boolean(geminiApiKey(env)), openrouter: Boolean(env.OPENROUTER_API_KEY), groq: Boolean(env.GROQ_API_KEY), workers_ai: Boolean(env.AI), cloudflare_browser: Boolean(env.BROWSER), tinyfish: Boolean(cleanSecret(env.TINYFISH_API_KEY)) },
-        authenticationConfigured: Boolean(env.JARVIS_APP_TOKEN && env.JARVIS_APP_TOKEN.length >= 32),
+        authenticationConfigured: cleanSecret(env.JARVIS_APP_TOKEN).length >= 32,
       });
     }
     if (request.method !== "POST" || !["/v1/chat", "/v1/web-agent"].includes(url.pathname)) {
       return json({ error: "Not found" }, 404);
     }
 
-    const expectedToken = env.JARVIS_APP_TOKEN || "";
+    const expectedToken = cleanSecret(env.JARVIS_APP_TOKEN);
     const authorization = request.headers.get("Authorization") || "";
     const providedToken = authorization.startsWith("Bearer ") ? authorization.slice(7).trim() : "";
     if (!tokenMatches(providedToken, expectedToken)) {
