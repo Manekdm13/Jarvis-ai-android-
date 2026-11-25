@@ -25,6 +25,14 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.height
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.tween
+import androidx.compose.ui.draw.scale
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -242,6 +250,8 @@ private fun JarvisApp(onSpeak: (String) -> Unit) {
                         )
                     }
                 }
+
+                JarvisCore(isThinking = isThinking)
 
                 Card(
                     shape = RoundedCornerShape(22.dp),
@@ -661,6 +671,105 @@ private fun JarvisApp(onSpeak: (String) -> Unit) {
                     record(action.requestedCommand, "Denied. I cancelled that action and did not run it.")
                 }) { Text("Deny") }
             }
+        )
+    }
+}
+
+@Composable
+private fun JarvisCore(isThinking: Boolean) {
+    val transition = rememberInfiniteTransition(label = "jarvis-core")
+    val pulse by transition.animateFloat(
+        initialValue = 0.94f,
+        targetValue = if (isThinking) 1.09f else 1.035f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(durationMillis = if (isThinking) 650 else 1800),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "core-pulse"
+    )
+
+    Column(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalAlignment = androidx.compose.ui.Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(5.dp)
+    ) {
+        Box(
+            modifier = Modifier
+                .size(132.dp)
+                .scale(pulse)
+                .background(
+                    Brush.radialGradient(
+                        listOf(
+                            Color(0x553FEAF4),
+                            Color(0x223B9FCB),
+                            Color.Transparent
+                        )
+                    ),
+                    CircleShape
+                )
+                .padding(8.dp)
+                .background(
+                    Brush.radialGradient(
+                        listOf(Color(0xFF1C536A), Color(0xFF0B1A2D), Color(0xFF07101E))
+                    ),
+                    CircleShape
+                ),
+            contentAlignment = androidx.compose.ui.Alignment.Center
+        ) {
+            Surface(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(5.dp),
+                shape = CircleShape,
+                color = Color.Transparent,
+                border = androidx.compose.foundation.BorderStroke(
+                    1.dp,
+                    Brush.sweepGradient(
+                        listOf(
+                            Color(0xFF8AF8FF),
+                            Color(0xFF327AAB),
+                            Color(0xFF9AABFF),
+                            Color(0xFF8AF8FF)
+                        )
+                    )
+                )
+            ) {
+                Box(contentAlignment = androidx.compose.ui.Alignment.Center) {
+                    Surface(
+                        modifier = Modifier.size(78.dp),
+                        shape = CircleShape,
+                        color = Color(0xFF102C42),
+                        border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF65E6F2))
+                    ) {
+                        Column(
+                            modifier = Modifier.fillMaxSize(),
+                            horizontalAlignment = androidx.compose.ui.Alignment.CenterHorizontally,
+                            verticalArrangement = Arrangement.Center
+                        ) {
+                            Text(
+                                "J",
+                                color = Color(0xFFB8FAFF),
+                                style = MaterialTheme.typography.headlineLarge
+                            )
+                            Text(
+                                "CORE",
+                                color = Color(0xFF65E6F2),
+                                style = MaterialTheme.typography.labelSmall
+                            )
+                        }
+                    }
+                }
+            }
+        }
+        Text(
+            if (isThinking) "PROCESSING REQUEST" else "NEURAL SYSTEM STANDBY",
+            color = if (isThinking) Color(0xFF9AABFF) else Color(0xFF65C9D8),
+            style = MaterialTheme.typography.labelSmall
+        )
+        Text(
+            "SECURE  •  PERSONAL  •  INTELLIGENT",
+            color = Color(0xFF66839F),
+            style = MaterialTheme.typography.labelSmall
         )
     }
 }
