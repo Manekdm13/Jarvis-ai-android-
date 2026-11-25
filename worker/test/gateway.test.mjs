@@ -28,6 +28,22 @@ test("health exposes configuration flags but no secrets", async () => {
   assert.equal(JSON.stringify(data).includes(token), false);
 });
 
+test("health exposes only a short one-way app-token fingerprint", async () => {
+  const res = await worker.fetch(new Request("https://jarvis.example/health"), env());
+  const data = await res.json();
+  assert.match(data.appTokenFingerprint, /^[a-f0-9]{16}$/);
+  assert.equal(JSON.stringify(data).includes(token), false);
+});
+
+test("bearer token pasted with surrounding whitespace is normalized consistently", async () => {
+  const original = globalThis.fetch;
+  globalThis.fetch = async () => response({ model: "gemini-3.1-flash-lite", status: "completed", steps: [{ type: "model_output", content: [{ type: "text", text: "Whitespace works" }] }] });
+  try {
+    const res = await worker.fetch(request({ message: "hello" }, "  " + token + "\n"), env());
+    assert.equal(res.status, 200);
+    assert.equal((await res.json()).reply, "Whitespace works");
+  } finally { globalThis.fetch = original; }
+});
 test("missing and incorrect bearer tokens are rejected before provider calls", async () => {
   const original = globalThis.fetch;
   let calls = 0;
