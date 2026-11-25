@@ -3,10 +3,11 @@ package com.manekdm13.jarvis
 import org.json.JSONObject
 import java.net.HttpURLConnection
 import java.net.URL
+import java.security.MessageDigest
 
 internal object AiGatewayClient {
     /** Uses the same Android HTTP stack as chat, but performs a safe unauthenticated GET. */
-    fun checkHealth(baseUrl: String): String {
+    fun checkHealth(baseUrl: String, token: String): String {
         val cleanBase = baseUrl.trim().trimEnd('/')
         require(cleanBase.startsWith("https://")) { "Enter a valid HTTPS Worker URL in AI gateway URL." }
         val endpoint = if (cleanBase.endsWith("/health")) cleanBase else "$cleanBase/health"
@@ -23,7 +24,22 @@ internal object AiGatewayClient {
             if (status !in 200..299) return "Worker health check returned HTTP $status."
             val json = JSONObject(body)
             if (!json.optBoolean("ok", false)) return "Worker responded, but health status is not OK."
-            return "Android app connected successfully. Gateway is online; authentication configured: ${json.optBoolean("authenticationConfigured", false)}."
+            val configured = json.optBoolean("authenticationConfigured", false)
+            val serverFingerprint = json.optString("appTokenFingerprint").takeIf { it.matches(Regex("[a-f0-9]{16}")) }
+            val normalizedToken = token.replace(Regex("[\\s\\uFEFF]+"), "").removeSurrounding("\\\"").removeSurrounding("'")
+            val localFingerprint = if (normalizedToken.isNotEmpty()) {
+                MessageDigest.getInstance("SHA-256")
+                    .digest(normalizedToken.toByteArray(Charsets.UTF_8))
+                    .take(8).joinToString("") { byte -> "%02x".format(byte.toInt() and 0xff) }
+            } else null
+            val authStatus = when {
+                !configured -> "Worker app-token secret is missing or too short."
+                localFingerprint == null -> "Enter the saved app token to verify authentication."
+                serverFingerprint == null -> "Worker is older than the token-diagnostic update; fingerprint unavailable."
+                localFingerprint == serverFingerprint -> "Saved app token MATCHES the Worker."
+                else -> "Saved app token DOES NOT MATCH the Worker. The 64-character token values must be identical."
+            }
+            return "Android reached the gateway. $authStatus"
         } finally {
             connection.disconnect()
         }
@@ -31,6 +47,7 @@ internal object AiGatewayClient {
 
     fun reply(baseUrl: String, token: String, message: String, history: String): String {
         require(token.isNotBlank()) { "Enter your private gateway access token in JARVIS settings." }
+        val cleanToken = token.replace(Regex("[\\s\\uFEFF]+"), "").removeSurrounding("\\\"").removeSurrounding("'")
         val cleanBase = baseUrl.trim().trimEnd('/')
         require(cleanBase.startsWith("https://")) { "Enter a valid HTTPS Worker URL in AI gateway URL." }
         val endpoint = if (cleanBase.endsWith("/v1/chat")) cleanBase else "$cleanBase/v1/chat"
@@ -44,7 +61,7 @@ internal object AiGatewayClient {
             readTimeout = 60_000
             doOutput = true
             setRequestProperty("Content-Type", "application/json; charset=utf-8")
-            setRequestProperty("Authorization", "Bearer $token")
+            setRequestProperty("Authorization", "Bearer $cleanToken")
         }
         try {
             connection.outputStream.use { it.write(payload.toString().toByteArray(Charsets.UTF_8)) }
