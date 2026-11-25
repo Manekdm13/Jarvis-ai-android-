@@ -91,7 +91,7 @@ internal object AiGatewayClient {
     /** Runs a user-requested browser task through the authenticated Worker; TinyFish credentials stay server-side. */
     fun runWebAgent(baseUrl: String, token: String, targetUrl: String, goal: String): String {
         require(token.isNotBlank()) { "Enter your private gateway access token in JARVIS settings." }
-        val cleanToken = token.replace(Regex("[\\s\\uFEFF]+"), "").removeSurrounding("\\\"").removeSurrounding("'")
+        val cleanToken = token.replace(Regex("[\s\uFEFF]+"), "").removeSurrounding("\"").removeSurrounding("'")
         val cleanBase = baseUrl.trim().trimEnd('/')
         require(cleanBase.startsWith("https://")) { "Enter a valid HTTPS Worker URL in AI gateway URL." }
         require(targetUrl.trim().startsWith("https://") || targetUrl.trim().startsWith("http://")) {
