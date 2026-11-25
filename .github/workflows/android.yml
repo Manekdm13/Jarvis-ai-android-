@@ -126,7 +126,6 @@ jobs:
           disable-linux-hw-accel: false
           emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim
           disable-animations: true
-          verbose: true
           script: |
             bash -lc 'set -euo pipefail; mkdir -p artifacts/emulator; timeout 120s adb wait-for-device; for attempt in $(seq 1 60); do booted="$(adb shell getprop sys.boot_completed 2>/dev/null | tr -d "\\r" || true)"; if [ "$booted" = "1" ]; then break; fi; sleep 5; done; test "$(adb shell getprop sys.boot_completed | tr -d "\\r")" = "1"; adb devices -l; gradle connectedDebugAndroidTest --no-daemon --stacktrace --info'
 
