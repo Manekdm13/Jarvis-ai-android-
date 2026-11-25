@@ -361,7 +361,7 @@ private fun JarvisApp(onSpeak: (String) -> Unit) {
                                     gatewayTestStatus = "Testing connection from the JARVIS app…"
                                     scope.launch {
                                         val result = withContext(Dispatchers.IO) {
-                                            runCatching { AiGatewayClient.checkHealth(gatewayUrl) }
+                                            runCatching { AiGatewayClient.checkHealth(gatewayUrl, gatewayToken) }
                                         }
                                         gatewayTestStatus = result.fold(
                                             onSuccess = { it },
