@@ -41,6 +41,7 @@ class JarvisLaunchTest {
                 result.contains("token MATCHES")
         )
     }
+
     @Test
     fun personalProfileIsOptInEncryptedAndClearable() {
         // Use the instrumentation package's private preferences so this test never
@@ -52,7 +53,10 @@ class JarvisLaunchTest {
             Context.MODE_PRIVATE
         )
 
-        check(preferences.edit().clear().commit())
+        // apply() updates the in-memory preferences synchronously. Do not assert
+        // the asynchronous disk-write result: some emulator images report false
+        // here even though the isolated preferences are correctly cleared.
+        preferences.edit().clear().apply()
         val suggestedProfile = profileMemory.load()
         assertTrue("The editable suggestion should be available", suggestedProfile.isNotBlank())
         assertEquals("An unsaved suggestion must not be sent to online AI", "", profileMemory.loadSaved())
@@ -74,5 +78,4 @@ class JarvisLaunchTest {
         assertNotNull("Encrypted profile ciphertext should exist after save", value)
         return requireNotNull(value)
     }
-
 }
