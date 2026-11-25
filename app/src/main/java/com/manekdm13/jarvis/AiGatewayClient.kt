@@ -26,7 +26,7 @@ internal object AiGatewayClient {
             if (!json.optBoolean("ok", false)) return "Worker responded, but health status is not OK."
             val configured = json.optBoolean("authenticationConfigured", false)
             val serverFingerprint = json.optString("appTokenFingerprint").takeIf { it.matches(Regex("[a-f0-9]{16}")) }
-            val normalizedToken = token.replace(Regex("[\\s\\uFEFF]+"), "").removeSurrounding("\\\"").removeSurrounding("'")
+            val normalizedToken = token.replace(Regex("[\s\uFEFF]+"), "").removeSurrounding("\"").removeSurrounding("'")
             val localFingerprint = if (normalizedToken.isNotEmpty()) {
                 MessageDigest.getInstance("SHA-256")
                     .digest(normalizedToken.toByteArray(Charsets.UTF_8))
@@ -47,7 +47,7 @@ internal object AiGatewayClient {
 
     fun reply(baseUrl: String, token: String, message: String, history: String): String {
         require(token.isNotBlank()) { "Enter your private gateway access token in JARVIS settings." }
-        val cleanToken = token.replace(Regex("[\\s\\uFEFF]+"), "").removeSurrounding("\\\"").removeSurrounding("'")
+        val cleanToken = token.replace(Regex("[\s\uFEFF]+"), "").removeSurrounding("\"").removeSurrounding("'")
         val cleanBase = baseUrl.trim().trimEnd('/')
         require(cleanBase.startsWith("https://")) { "Enter a valid HTTPS Worker URL in AI gateway URL." }
         val endpoint = if (cleanBase.endsWith("/v1/chat")) cleanBase else "$cleanBase/v1/chat"
@@ -91,6 +91,7 @@ internal object AiGatewayClient {
     /** Runs a user-requested browser task through the authenticated Worker; TinyFish credentials stay server-side. */
     fun runWebAgent(baseUrl: String, token: String, targetUrl: String, goal: String): String {
         require(token.isNotBlank()) { "Enter your private gateway access token in JARVIS settings." }
+        val cleanToken = token.replace(Regex("[\\s\\uFEFF]+"), "").removeSurrounding("\\\"").removeSurrounding("'")
         val cleanBase = baseUrl.trim().trimEnd('/')
         require(cleanBase.startsWith("https://")) { "Enter a valid HTTPS Worker URL in AI gateway URL." }
         require(targetUrl.trim().startsWith("https://") || targetUrl.trim().startsWith("http://")) {
@@ -105,7 +106,7 @@ internal object AiGatewayClient {
             readTimeout = 180_000
             doOutput = true
             setRequestProperty("Content-Type", "application/json; charset=utf-8")
-            setRequestProperty("Authorization", "Bearer $token")
+            setRequestProperty("Authorization", "Bearer $cleanToken")
         }
         try {
             connection.outputStream.use { it.write(payload.toString().toByteArray(Charsets.UTF_8)) }
