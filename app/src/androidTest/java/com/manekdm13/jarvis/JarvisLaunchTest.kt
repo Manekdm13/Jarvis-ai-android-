@@ -52,7 +52,7 @@ class JarvisLaunchTest {
             Context.MODE_PRIVATE
         )
 
-        profileMemory.clear()
+        check(preferences.edit().clear().commit())
         val suggestedProfile = profileMemory.load()
         assertTrue("The editable suggestion should be available", suggestedProfile.isNotBlank())
         assertEquals("An unsaved suggestion must not be sent to online AI", "", profileMemory.loadSaved())
