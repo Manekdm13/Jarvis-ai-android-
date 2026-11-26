@@ -19,8 +19,6 @@ class JarvisLaunchTest {
     @Test
     fun launchShowsAssistantAndApprovalPolicy() {
         composeRule.onNodeWithText("J.A.R.V.I.S").assertIsDisplayed()
-
-        // Match stable visible labels from the current dashboard and composer.
         composeRule.onNodeWithText("Your assistant is ready").assertIsDisplayed()
         composeRule.onNodeWithText("Message your assistant…").assertIsDisplayed()
         composeRule.onNodeWithText("Send  ➤").assertIsDisplayed()
@@ -39,6 +37,43 @@ class JarvisLaunchTest {
                 result.contains("fingerprint unavailable") ||
                 result.contains("token DOES NOT MATCH") ||
                 result.contains("token MATCHES")
+        )
+    }
+
+    @Test
+    fun conversationMemoryPersistsEncryptedMessagesAndRejectsCorruptData() {
+        // Use instrumentation-private preferences; never touch the installed app's
+        // actual conversation history.
+        val testContext = InstrumentationRegistry.getInstrumentation().context
+        val preferences = testContext.getSharedPreferences(
+            "jarvis_private_memory",
+            Context.MODE_PRIVATE
+        )
+        preferences.edit().clear().apply()
+
+        val privateMessage = "JARVIS conversation encryption regression test"
+        ConversationMemory(testContext).save(listOf(privateMessage))
+
+        val storedCiphertext = assertNotNullAndGet(
+            preferences.getString("conversation_ciphertext", null)
+        )
+        assertFalse(
+            "Conversation plaintext must not be stored in preferences",
+            storedCiphertext.contains(privateMessage)
+        )
+        assertEquals(
+            "A fresh memory instance should restore the saved conversation",
+            listOf(privateMessage),
+            ConversationMemory(testContext).load()
+        )
+
+        // A malformed packed IV/ciphertext must be discarded safely, not crash
+        // startup or return corrupted conversation text.
+        preferences.edit().putString("conversation_ciphertext", "AQID").apply()
+        assertEquals(emptyList<String>(), ConversationMemory(testContext).load())
+        assertFalse(
+            "Corrupt ciphertext should be removed after the failed decrypt",
+            preferences.contains("conversation_ciphertext")
         )
     }
 
@@ -75,7 +110,7 @@ class JarvisLaunchTest {
     }
 
     private fun assertNotNullAndGet(value: String?): String {
-        assertNotNull("Encrypted profile ciphertext should exist after save", value)
+        assertNotNull("Encrypted ciphertext should exist after save", value)
         return requireNotNull(value)
     }
 }
