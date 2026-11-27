@@ -898,26 +898,46 @@ private fun resolvePhoneAction(
     if (command == "camera" || command == "open camera") {
         return approval("Open camera", "JARVIS will open the camera. It will not take a photo automatically.", Intent(MediaStore.ACTION_IMAGE_CAPTURE))
     }
-    if (command in setOf("gallery", "open gallery", "photos", "open photos", "choose a photo", "select an image")) {
-        val picker = Intent(Intent.ACTION_GET_CONTENT).apply {
-            type = "image/*"
-            addCategory(Intent.CATEGORY_OPENABLE)
+    if (command.startsWith("send whatsapp ") || command.startsWith("whatsapp ")) {
+        val draft = rawCommand.substringAfter("whatsapp ", "").trim()
+        if (draft.isBlank()) return null to "Tell me what you want to draft for WhatsApp."
+        if (context.packageManager.getLaunchIntentForPackage("com.whatsapp") == null) {
+            return null to "WhatsApp is not installed or available on this device."
+        }
+        val share = Intent(Intent.ACTION_SEND).apply {
+            type = "text/plain"
+            putExtra(Intent.EXTRA_TEXT, draft)
+            setPackage("com.whatsapp")
         }
         return approval(
-            "Choose a photo",
-            "Android will show its photo picker. JARVIS receives only the item you explicitly select.",
-            Intent.createChooser(picker, "Choose a photo")
+            "Open WhatsApp with a message draft",
+            "JARVIS will open WhatsApp with your text prepared. You choose the recipient and press Send yourself.",
+            share
         )
     }
-    if (command in setOf("files", "open files", "file manager", "browse files", "choose a file")) {
-        val picker = Intent(Intent.ACTION_OPEN_DOCUMENT).apply {
-            type = "*/*"
-            addCategory(Intent.CATEGORY_OPENABLE)
+    if (command.startsWith("compose sms ") || command.startsWith("text message ")) {
+        val draft = rawCommand.substringAfter("sms ", rawCommand.substringAfter("text message ")).trim()
+        if (draft.isBlank()) return null to "Tell me what text you want to draft."
+        val sms = Intent(Intent.ACTION_SENDTO, Uri.parse("smsto:")).apply {
+            putExtra("sms_body", draft)
         }
         return approval(
-            "Choose a file",
-            "Android will show its document picker. JARVIS receives only the file you explicitly select.",
-            picker
+            "Open SMS with a draft",
+            "JARVIS will prepare a text message. You choose the recipient and send it yourself.",
+            sms
+        )
+    }
+    if (command.startsWith("share ")) {
+        val draft = rawCommand.removePrefix("share ").trim()
+        if (draft.isBlank()) return null to "Tell me what you want to share."
+        val share = Intent(Intent.ACTION_SEND).apply {
+            type = "text/plain"
+            putExtra(Intent.EXTRA_TEXT, draft)
+        }
+        return approval(
+            "Open Android share sheet",
+            "Review the text and choose an app. Nothing is shared until you confirm in that app.",
+            Intent.createChooser(share, "Share with")
         )
     }
     if (command in setOf("notification settings", "open notification settings")) {
