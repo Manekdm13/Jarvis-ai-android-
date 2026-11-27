@@ -309,6 +309,42 @@ private fun JarvisApp(onSpeak: (String) -> Unit) {
             "\n\nI saved that preference to encrypted local memory."
         } else ""
 
+        val applicationIntent = listOf(
+            "fill out my application", "fill my application", "complete my application",
+            "fill out this application", "fill this application", "scholarship application",
+            "apply for scholarship", "fill application form", "complete this form",
+            "fill this form", "apply to university", "university application"
+        ).any { normalizedQuestion.contains(it, ignoreCase = true) }
+        if (applicationIntent) {
+            val explicitUrl = Regex("https?://[^\\s]+", RegexOption.IGNORE_CASE)
+                .find(normalizedQuestion)?.value?.trimEnd('.', ',', ')', ']')
+            val startUrl = explicitUrl ?: (
+                "https://www.google.com/search?q=" + Uri.encode(normalizedQuestion)
+            )
+            val browserGoal = """
+                Find the official application portal relevant to this request. Verify the university,
+                scholarship, eligibility, and application page from official sources. Use the owner's
+                saved JARVIS profile to fill every matching field accurately. Do not invent missing
+                facts or credentials. Save a draft where possible. Stop before final Submit/Apply/Send
+                and report completed fields, missing information, login/CAPTCHA/OTP blockers, and the
+                exact page reached.
+                User's full request: $normalizedQuestion
+            """.trimIndent()
+            val taskId = java.util.UUID.randomUUID().toString()
+            runCatching {
+                JarvisTaskScheduler.enqueueBrowser(context, taskId, startUrl, browserGoal)
+            }.onSuccess {
+                backgroundTaskId = taskId
+                settings.edit().putString("last_background_task_id", taskId).apply()
+                backgroundTaskStatus = "Queued — browser will continue in background"
+                backgroundTaskResult = ""
+                record(question, "I've queued the application workflow. JARVIS will search for the official portal, use your saved profile to fill matching fields, and stop before final submission. You can close the app; the cloud-browser task will run when the configured browser service is available.")
+            }.onFailure { error ->
+                record(question, "I couldn't queue the application workflow: " + (error.message ?: "unknown error"))
+            }
+            return
+        }
+
         val prepared = resolvePhoneAction(context, question)
         when {
             prepared?.first != null -> {
