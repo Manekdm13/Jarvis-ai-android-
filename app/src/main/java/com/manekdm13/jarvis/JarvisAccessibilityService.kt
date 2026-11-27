@@ -42,6 +42,22 @@ class JarvisAccessibilityService : AccessibilityService() {
         }
     }
 
+    fun readVisibleScreen(): String {
+        val root = rootInActiveWindow ?: return ""
+        val collected = linkedSetOf<String>()
+        val queue = ArrayDeque<AccessibilityNodeInfo>()
+        queue.add(root)
+        while (queue.isNotEmpty() && collected.sumOf { it.length } < 7_000) {
+            val node = queue.removeFirst()
+            if (!node.isPassword) {
+                node.text?.toString()?.trim()?.takeIf { it.isNotBlank() }?.let(collected::add)
+                node.contentDescription?.toString()?.trim()?.takeIf { it.isNotBlank() }?.let(collected::add)
+            }
+            for (index in 0 until node.childCount) node.getChild(index)?.let(queue::addLast)
+        }
+        return collected.joinToString("\\n").take(7_000)
+    }
+
     private fun tapVisibleText(root: AccessibilityNodeInfo?, target: String): Boolean {
         if (root == null || target.isBlank()) return false
         val matches = root.findAccessibilityNodeInfosByText(target)
@@ -93,6 +109,8 @@ class JarvisAccessibilityService : AccessibilityService() {
 
         fun execute(command: String): Boolean =
             active?.executeApprovedCommand(command) ?: false
+
+        fun readScreen(): String = active?.readVisibleScreen().orEmpty()
 
         fun isEnabledInSettings(service: JarvisAccessibilityService): Boolean {
             val enabled = Settings.Secure.getString(
