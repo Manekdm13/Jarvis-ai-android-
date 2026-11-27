@@ -102,6 +102,23 @@ The Worker calls TinyFish's synchronous automation endpoint and returns the prov
 
 The Worker health endpoint reports only whether the TinyFish secret is configured; it never exposes the key. If the secret is missing, `/v1/web-agent` returns HTTP 503 with setup guidance.
 
+### Browser form automation
+
+The same authenticated `POST /v1/web-agent` endpoint accepts an optional `mode: "automation"` and `context` field. Automation mode deliberately uses the server-side TinyFish browser agent even when Cloudflare Browser Run is configured for read-only research. The Worker adds guardrails: it may fill matching fields from the supplied owner-approved profile, must not invent missing facts, and must stop before final Submit/Apply/Send/Pay/Delete actions. It must stop for passwords, OTPs, CAPTCHA, recovery codes, payment data, or account/security verification.
+
+Example request:
+
+```json
+{
+  "url": "https://university.example/application",
+  "goal": "Complete the scholarship form using my saved profile and save a draft. Do not submit.",
+  "mode": "automation",
+  "context": "Owner-approved profile fields..."
+}
+```
+
+The Android app can queue this browser task through WorkManager, allowing the server-side browser session to run after the app is closed, subject to Android background scheduling and network availability. This requires the Cloudflare Worker secret `TINYFISH_API_KEY`; the Cloudflare Browser Run binding alone remains read-only. The task result is a draft/progress report, not proof that every field was accepted by the university portal. The owner must review the completed application and explicitly submit it.
+
 ## Security and limits
 
 - The Worker rejects chat requests without a matching bearer token of at least 32 characters.
