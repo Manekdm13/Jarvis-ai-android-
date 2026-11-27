@@ -79,3 +79,31 @@ A task is complete only when JARVIS has produced the requested output or verifie
 ### Status
 
 This is a product requirement, not yet an implemented autonomous task engine. It requires a task orchestrator, tool registry, durable task storage, source-backed knowledge retrieval, execution/verification logic, and explicit permission boundaries.
+
+
+## Scholarship search and application agent
+
+A high-priority use case is the owner's request: "JARVIS, find me scholarships" or "find scholarships and apply for the ones I'm eligible for."
+
+### Scholarship workflow
+
+1. Use the owner's approved scholarship profile and application documents to identify target degree, field, citizenship, graduation/degree-award date, GPA, language proof, passport status, and preferred countries. Treat the latest user-confirmed profile values as authoritative; flag missing or conflicting details instead of guessing.
+2. Search current opportunities, prioritizing official scholarship and university pages. Capture official application links, opening/deadline dates, funding coverage, eligible countries, degree/field fit, required graduation timing, and required documents.
+3. Filter out ineligible, expired, partial-funding, or unverified opportunities unless the owner explicitly asks to include them. Explain borderline eligibility and cite the official source.
+4. Rank the best matches and prepare a scholarship-specific checklist and timeline.
+5. Reuse approved CV, personal statement, study plan, transcripts, certificates, and reference details. Draft and tailor each application to the actual program requirements; never invent achievements, dates, grades, language scores, publications, or referee information.
+6. Where a portal supports it and the owner has connected/authorized access, fill application fields, upload the correct documents, save drafts, and track completion. Prefer saving a draft over repeatedly asking the owner to copy/paste.
+7. Validate every field against source documents and the portal's instructions. Keep a clear record of what was filled, what remains, and any uncertainty.
+8. Request the owner's review/explicit confirmation before final submission, accepting legal declarations, sending referee requests, or any other irreversible/external action. After approval, submit only if the portal and authorized integration permit it; then verify the portal confirmation and save the receipt/reference.
+
+### Automation and integrity rules
+
+- Do as much preparation and portal data entry as authorized, with minimal interruptions. Ask only for missing required information, authentication/OTP/CAPTCHA, consent, or final approval.
+- Never bypass CAPTCHA, MFA, portal security, eligibility rules, or application limits. Never impersonate a referee or create false supporting documents.
+- Protect passports, transcripts, account credentials, and personal data; use secure storage and least-privilege access. Do not put secrets in task logs or research notes.
+- If direct portal automation is unavailable, prepare a complete application pack and a field-by-field ready-to-enter draft, then identify the exact remaining manual step.
+- Check deadlines against the official source and use user-approved reminders; don't send duplicate reminders unless the deadline or status meaningfully changes.
+
+### Completion definition
+
+"Application prepared" means fields and documents are drafted/filled and checked, with submission pending owner review. "Application submitted" means the portal confirmed successful submission and JARVIS saved evidence. These statuses must never be confused.
