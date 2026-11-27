@@ -9,14 +9,14 @@ This is app-to-app VoIP. It does not dial a SIM number and does not use Twilio/P
 - Android: incoming-call notification/screen, foreground call service, microphone permission, call controls, mute/speaker/hang-up.
 - Signalling/state: Supabase Auth + Realtime/Postgres. WebRTC offer/answer/ICE events are owner-scoped.
 - Media: WebRTC peer connection. Start with free STUN/P2P; add a TURN relay only if testing proves it is necessary and a genuinely free provider/hosting option is available. Calls may fail on restrictive carrier/NAT networks without TURN.
-- Wake-up: Firebase Cloud Messaging high-priority data notification. FCM is no-cost on Firebase Spark; it wakes/rings the app but does not carry audio.
-- Agent: Cloudflare Worker creates an interaction request, waits for the owner's answer/transcript, and resumes from the saved checkpoint.
+- Wake-up: Firebase Cloud Messaging high-priority data notification. FCM wakes/rings the app but does not carry audio.
+- Agent: authenticated Supabase Edge Function creates an interaction request and persists a task checkpoint; the task answer is attached to that same interaction before the caller resumes it.
 - Voice AI: existing JARVIS gateway/provider, subject to provider free-tier quotas and availability.
 
 ## Security
 - Never put Supabase service-role keys, provider keys, or FCM server credentials in the APK.
-- Authenticate each device/user; enforce owner-scoped RLS on all call and task-interaction rows.
-- Validate call ownership and task ownership server-side before accepting signalling events.
+- Authenticate each device/user; enforce owner-scoped RLS on all call, device and task-interaction rows.
+- Validate call ownership server-side before accepting signalling events.
 - Do not auto-answer. Show an explicit incoming-call notification and answer control.
 - Keep microphone capture limited to an active, accepted call; show Android's microphone indicator.
 - Consequential actions require separate confirmation; call audio alone cannot authorize sending, submitting, paying, deleting, or changing security settings.
@@ -27,24 +27,25 @@ This is app-to-app VoIP. It does not dial a SIM number and does not use Twilio/P
 - Project ref: `felwloanguhybycvgcit`
 - Region: `ap-south-1` (Mumbai)
 - Project creation quote: `$0/month`
-- Migration `202611280001_jarvis_voice_calling` applied successfully.
-- Verified tables: `jarvis_calls`, `jarvis_task_interactions`, `jarvis_call_events`; RLS enabled on all three.
-- Security advisor: no findings at verification time.
-- Performance advisor identified missing covering indexes; owner/call indexes were added afterward.
-- Do not commit service-role credentials. Client integration must use a publishable key and authenticated sessions.
+- Migrations `202611280001_jarvis_voice_calling` and `202611280002_jarvis_device_registry` applied.
+- Tables: `jarvis_calls`, `jarvis_task_interactions`, `jarvis_call_events`, `jarvis_devices`; RLS enabled.
+- Edge Function `jarvis-call-control` deployed ACTIVE with JWT verification required. Actions: register_device, disable_device, create_interaction, answer, decline, hangup, submit_answer, mark_resumed.
+- The Edge Function uses the caller's authenticated JWT and anon key, not the service-role key.
+- Security advisor reported no findings at last check. Owner/call indexes added after performance review.
+- Keep service-role and provider credentials out of the APK and repository.
 
 ## Remaining integration prerequisites
-- The Android repository currently has no Firebase Messaging SDK/config, no WebRTC SDK, no Supabase Auth client, and no call service/UI.
-- A Firebase Android app must be registered for application ID `com.manekdm13.jarvis` and its `google-services.json` supplied through a secure workflow. Keep Firebase server credentials in secrets. Firebase Cloud Messaging is no-cost on Spark; no billing account is needed for FCM.
-- Add Supabase Auth sign-in/device registration before exposing call rows to the app. The RLS policies intentionally deny anonymous unauthenticated access.
-- Implement authenticated signalling, WebRTC media, FCM incoming notification/foreground service, call UI, and Worker endpoints for signed invites/task checkpoint/resume.
-- Physical-device tests are required on Redmi Note 13 4G / Android 15. Do not claim background ringing or live calling until these pass.
+- The Android repository still needs Firebase Messaging configuration/SDK, WebRTC SDK integration, Supabase Auth session handling, call service/UI and client-side signalling.
+- A Firebase Android app must be registered for application ID `com.manekdm13.jarvis` and its `google-services.json` supplied securely. Firebase server credentials must remain in secrets.
+- Register the authenticated Android device's FCM token using the Edge Function before it can receive incoming-call notifications.
+- Implement authenticated WebRTC offer/answer/ICE signalling, incoming-call foreground service, call UI and the push-delivery path.
+- Physical-device tests are required on Redmi Note 13 4G / Android 15. Background ringing and live calling are not implemented or verified yet.
 
 ## Build sequence
-1. Configure Firebase project/app + FCM and provide the generated Android config securely.
-2. Add Supabase Auth session handling and register the device's FCM token under the authenticated owner.
+1. Configure Firebase project/app + FCM and supply generated Android config securely.
+2. Add Supabase Auth session handling and register FCM token via `jarvis-call-control`.
 3. Implement WebRTC signalling/media and incoming-call foreground service.
-4. Add Cloudflare Worker endpoints for signed call invites and task checkpoint/resume; keep server credentials only as Worker secrets.
+4. Connect task orchestration to create_interaction, submit_answer and mark_resumed.
 5. Test background notification, accept/decline, audio route, network loss, task resume, and owner isolation on the physical device.
 
 ## Cost policy
