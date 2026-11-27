@@ -59,15 +59,15 @@ jobs:
         uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: "8.13"
-      - name: Build debug APK with actionable diagnostics
+      - name: Build debug APK and run JVM unit tests
         shell: bash
         run: |
           set +e
-          gradle assembleDebug --no-daemon --stacktrace --info 2>&1 | tee app-build.log
+          gradle assembleDebug testDebugUnitTest --no-daemon --stacktrace --info 2>&1 | tee app-build.log
           build_status=${PIPESTATUS[0]}
           if [ "$build_status" -ne 0 ]; then
-            echo "## Android build failure details" >> "$GITHUB_STEP_SUMMARY"
-            grep -E "e: |error:|What went wrong:|Execution failed|Unresolved reference|Could not resolve|failed to" app-build.log | tail -n 80 | tee -a "$GITHUB_STEP_SUMMARY" || true
+            echo "## Android build or unit-test failure details" >> "$GITHUB_STEP_SUMMARY"
+            grep -E "e: |error:|What went wrong:|Execution failed|Unresolved reference|Could not resolve|failed to|FAILED|tests completed" app-build.log | tail -n 100 | tee -a "$GITHUB_STEP_SUMMARY" || true
             exit "$build_status"
           fi
       - name: Upload Android build diagnostics
@@ -129,13 +129,24 @@ jobs:
           script: |
             set -euo pipefail
             mkdir -p artifacts/emulator
-            timeout 120s adb wait-for-device
-            for boot_attempt in $(seq 1 60); do
-              booted="$(adb shell getprop sys.boot_completed 2>/dev/null | tr -d "\\r" || true)"
-              if [ "$booted" = "1" ]; then break; fi
+            # The hosted emulator occasionally appears as "offline" for a short
+            # period after boot. Reconnect ADB before treating that as a test failure.
+            booted=0
+            for boot_attempt in $(seq 1 90); do
+              adb start-server >/dev/null 2>&1 || true
+              adb reconnect offline >/dev/null 2>&1 || true
+              device_state="$(adb devices | awk '/emulator-/{print $2; exit}')"
+              if [ "$device_state" = "device" ]; then
+                boot_flag="$(adb shell getprop sys.boot_completed 2>/dev/null | tr -d "\\r" || true)"
+                if [ "$boot_flag" = "1" ]; then booted=1; break; fi
+              fi
+              echo "Waiting for emulator ADB (attempt $boot_attempt; state=${device_state:-missing})"
               sleep 5
             done
-            test "$(adb shell getprop sys.boot_completed | tr -d "\\r")" = "1"
+            if [ "$booted" -ne 1 ]; then
+              adb devices -l || true
+              exit 1
+            fi
             adb devices -l
             success=0
             last_status=1
