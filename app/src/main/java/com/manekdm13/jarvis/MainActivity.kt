@@ -103,6 +103,8 @@ private fun JarvisApp(onSpeak: (String) -> Unit) {
     val clipboardManager = LocalClipboardManager.current
     val memory = remember(context) { ConversationMemory(context.applicationContext) }
     val profileMemory = remember(context) { UserProfileMemory(context.applicationContext) }
+    val learningMemory = remember(context) { JarvisLearningMemory(context.applicationContext) }
+    var learnedLessons by remember(learningMemory) { mutableStateOf(learningMemory.load()) }
     var userProfile by remember(profileMemory) { mutableStateOf(profileMemory.load()) }
     var activeUserProfile by remember(profileMemory) { mutableStateOf(profileMemory.loadSaved()) }
     var profileStatus by remember { mutableStateOf("") }
@@ -197,6 +199,42 @@ private fun JarvisApp(onSpeak: (String) -> Unit) {
         val question = input.trim()
         if (question.isEmpty()) return
         input = ""
+        val normalizedQuestion = question.trim()
+        when {
+            normalizedQuestion.startsWith("remember that ", ignoreCase = true) ||
+                normalizedQuestion.startsWith("learn that ", ignoreCase = true) -> {
+                val lesson = normalizedQuestion.substringAfter(' ').substringAfter(' ').trim()
+                if (lesson.isBlank()) {
+                    record(question, "Tell me the exact preference or lesson to remember.")
+                } else if (learningMemory.remember(lesson)) {
+                    learnedLessons = learningMemory.load()
+                    record(question, "Saved to encrypted long-term learning memory. I'll use this lesson in future chats and background tasks.")
+                } else {
+                    record(question, "I couldn't save an empty lesson.")
+                }
+                return
+            }
+            normalizedQuestion.equals("what have you learned", ignoreCase = true) ||
+                normalizedQuestion.equals("show learned memory", ignoreCase = true) -> {
+                learnedLessons = learningMemory.load()
+                record(question, if (learnedLessons.isEmpty()) "I have no user-directed lessons saved yet. Say 'remember that ...' to teach me." else
+                    "My saved lessons:\\n" + learnedLessons.mapIndexed { index, item -> "${index + 1}. $item" }.joinToString("\\n"))
+                return
+            }
+            normalizedQuestion.startsWith("forget lesson ", ignoreCase = true) -> {
+                val match = normalizedQuestion.substringAfter("forget lesson ", "").trim()
+                val removed = learningMemory.forget(match)
+                learnedLessons = learningMemory.load()
+                record(question, if (removed > 0) "Removed $removed matching lesson(s) from long-term memory." else "I couldn't find a saved lesson matching that text.")
+                return
+            }
+            normalizedQuestion.equals("forget all learned lessons", ignoreCase = true) -> {
+                learningMemory.clear()
+                learnedLessons = emptyList()
+                record(question, "Cleared all user-directed learning lessons from this device.")
+                return
+            }
+        }
         val prepared = resolvePhoneAction(context, question)
         when {
             prepared?.first != null -> {
@@ -213,6 +251,11 @@ private fun JarvisApp(onSpeak: (String) -> Unit) {
                         if (activeUserProfile.isNotBlank()) {
                             append("USER PROFILE (saved by the user):\n")
                             append(activeUserProfile.trim())
+                            append("\n\n")
+                        }
+                        if (learnedLessons.isNotEmpty()) {
+                            append("LONG-TERM USER-DIRECTED LESSONS (encrypted local memory; explicitly taught by the user):\n")
+                            append(learnedLessons.joinToString("\n") { "- $it" })
                             append("\n\n")
                         }
                         append("RECENT CONVERSATION:\n")
