@@ -125,7 +125,7 @@ private fun JarvisApp(onSpeak: (String) -> Unit) {
     var webAgentGoal by remember { mutableStateOf("") }
     var webAgentStatus by remember { mutableStateOf("") }
     var isRunningWebAgent by remember { mutableStateOf(false) }
-    var backgroundTaskId by remember { mutableStateOf<String?>(null) }
+    var backgroundTaskId by remember { mutableStateOf(context.getSharedPreferences("jarvis_settings", Context.MODE_PRIVATE).getString("last_background_task_id", null)) }
     var backgroundTaskStatus by remember { mutableStateOf("") }
     var backgroundTaskResult by remember { mutableStateOf("") }
     var showSettings by remember { mutableStateOf(false) }
@@ -612,6 +612,7 @@ private fun JarvisApp(onSpeak: (String) -> Unit) {
                                     runCatching { JarvisTaskScheduler.enqueue(context, taskId, goal) }
                                         .onSuccess {
                                             backgroundTaskId = taskId
+                                            settings.edit().putString("last_background_task_id", taskId).apply()
                                             backgroundTaskStatus = "Queued"
                                             backgroundTaskResult = ""
                                             input = ""
@@ -645,6 +646,14 @@ private fun JarvisApp(onSpeak: (String) -> Unit) {
                                             backgroundTaskId?.let { JarvisTaskScheduler.cancel(context, it) }
                                             backgroundTaskStatus = "Cancellation requested"
                                         }) { Text("Cancel task") }
+                                    }
+                                    if (backgroundTaskStatus in listOf("Completed", "Failed", "Cancelled")) {
+                                        TextButton(onClick = {
+                                            settings.edit().remove("last_background_task_id").apply()
+                                            backgroundTaskId = null
+                                            backgroundTaskStatus = ""
+                                            backgroundTaskResult = ""
+                                        }) { Text("Dismiss result") }
                                     }
                                 }
                             }
