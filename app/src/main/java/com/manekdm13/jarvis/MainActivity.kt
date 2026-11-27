@@ -745,7 +745,7 @@ private fun JarvisApp(onSpeak: (String) -> Unit) {
                             modifier = Modifier.fillMaxWidth(),
                             enabled = !isThinking && !isRunningWebAgent,
                             shape = RoundedCornerShape(14.dp)
-                        ) { Text("🌐  TinyFish Web Agent") }
+                        ) { Text("🌐  JARVIS Browser Operator") }
                         OutlinedButton(
                             onClick = {
                                 val goal = input.trim()
@@ -809,10 +809,10 @@ private fun JarvisApp(onSpeak: (String) -> Unit) {
     if (showWebAgentDialog) {
         AlertDialog(
             onDismissRequest = { if (!isRunningWebAgent) showWebAgentDialog = false },
-            title = { Text("TinyFish Web Agent") },
+            title = { Text("JARVIS Browser Operator") },
             text = {
                 Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                    Text("Give JARVIS a website and a specific browser task. Review the task before running it; some browser actions may submit forms or change website data.")
+                    Text("JARVIS can research websites and fill application forms using your saved profile. It runs in a secure cloud browser, so the task can continue after you close the app. It will stop before final submission and report anything requiring your input.")
                     OutlinedTextField(
                         value = webAgentUrl,
                         onValueChange = { webAgentUrl = it },
@@ -826,13 +826,31 @@ private fun JarvisApp(onSpeak: (String) -> Unit) {
                         onValueChange = { webAgentGoal = it },
                         modifier = Modifier.fillMaxWidth(),
                         label = { Text("What should TinyFish do?") },
-                        placeholder = { Text("Find the public pricing plans and summarize them. Do not purchase anything.") },
+                        placeholder = { Text("Find suitable scholarship applications and fill matching fields using my saved profile. Save drafts; do not submit.") },
                         minLines = 3,
                         maxLines = 5
                     )
                     if (webAgentStatus.isNotBlank()) {
                         Text(webAgentStatus, color = Color(0xFF9FC7D8), style = MaterialTheme.typography.bodySmall)
                     }
+                    TextButton(
+                        enabled = !isRunningWebAgent && webAgentUrl.startsWith("http") && webAgentGoal.isNotBlank(),
+                        onClick = {
+                            val taskId = java.util.UUID.randomUUID().toString()
+                            runCatching {
+                                JarvisTaskScheduler.enqueueBrowser(context, taskId, webAgentUrl.trim(), webAgentGoal.trim())
+                            }.onSuccess {
+                                backgroundTaskId = taskId
+                                settings.edit().putString("last_background_task_id", taskId).apply()
+                                backgroundTaskStatus = "Queued — will run in background"
+                                backgroundTaskResult = ""
+                                showWebAgentDialog = false
+                                Toast.makeText(context, "JARVIS browser task queued", Toast.LENGTH_SHORT).show()
+                            }.onFailure { error ->
+                                webAgentStatus = "Could not queue task: " + (error.message ?: "unknown error")
+                            }
+                        }
+                    ) { Text("Run while app is closed") }
                 }
             },
             confirmButton = {
@@ -844,7 +862,10 @@ private fun JarvisApp(onSpeak: (String) -> Unit) {
                         scope.launch {
                             val result = withContext(Dispatchers.IO) {
                                 runCatching {
-                                    AiGatewayClient.runWebAgent(gatewayUrl, gatewayToken, webAgentUrl, webAgentGoal)
+                                    AiGatewayClient.runWebAgent(
+                                        gatewayUrl, gatewayToken, webAgentUrl, webAgentGoal,
+                                        mode = "automation", context = activeUserProfile
+                                    )
                                 }
                             }
                             isRunningWebAgent = false
