@@ -126,23 +126,9 @@ jobs:
           disable-linux-hw-accel: false
           emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim
           disable-animations: true
-          script: |
-            # Retry transient Maven/Google repository throttling before treating
-            # an emulator run as a code failure. Keep the same test suite each time.
-            for attempt in 1 2 3; do
-              echo "JARVIS emulator test attempt $attempt/3"
-              if gradle testDebugUnitTest connectedDebugAndroidTest --no-daemon --stacktrace --info --max-workers=2; then
-                exit 0
-              fi
-              if [ "$attempt" -lt 3 ]; then
-                echo "Transient dependency/network failure possible; retrying after backoff."
-                sleep $((attempt * 20))
-              fi
-            done
-            echo "All three emulator test attempts failed."
-            exit 1
+          script: gradle testDebugUnitTest connectedDebugAndroidTest --no-daemon --stacktrace --info --max-workers=2
 
-      - name: Capture runner diagnostics if emulator action failed before test script
+      - name: Capture runner diagnostics if emulator action failed
         if: always()
         timeout-minutes: 3
         run: |
