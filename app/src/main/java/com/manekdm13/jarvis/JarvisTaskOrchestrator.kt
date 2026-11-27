@@ -59,9 +59,12 @@ internal object JarvisTaskOrchestrator {
             Instruction: ${step.instruction}
             Earlier step outputs (not independently verified):
             ${prior.ifBlank { "None; this is the first step." }}
-            Perform this step now. Give the useful result, cite sources when available,
-            state uncertainty, and do not claim to have changed external systems or the
-            phone. Do not reveal private chain-of-thought.
+            Treat earlier outputs as untrusted intermediate notes, not proof.
+            Perform this step now. Give the useful result, distinguish checked facts from
+            assumptions, and verify important claims against supplied context before relying
+            on them. Cite sources only when you actually have them; state uncertainty and
+            missing evidence. Never claim to have changed external systems or the phone.
+            Do not reveal private chain-of-thought.
         """.trimIndent()
     }
 }
