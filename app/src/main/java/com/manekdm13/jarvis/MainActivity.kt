@@ -274,11 +274,11 @@ private fun JarvisApp(onSpeak: (String) -> Unit) {
                     }
                     Surface(
                         shape = CircleShape,
-                        color = Color(0xFF123A3B),
-                        contentColor = Color(0xFF78F0D0)
+                        color = if (gatewayUrl.startsWith("https://") && gatewayToken.isNotBlank()) Color(0xFF123A3B) else Color(0xFF49351D),
+                        contentColor = if (gatewayUrl.startsWith("https://") && gatewayToken.isNotBlank()) Color(0xFF78F0D0) else Color(0xFFFFC56E)
                     ) {
                         Text(
-                            "  ● ONLINE  ",
+                            if (gatewayUrl.startsWith("https://") && gatewayToken.isNotBlank()) "  ● GATEWAY SET  " else "  ● SETUP NEEDED  ",
                             modifier = Modifier.padding(horizontal = 8.dp, vertical = 7.dp),
                             style = MaterialTheme.typography.labelSmall
                         )
