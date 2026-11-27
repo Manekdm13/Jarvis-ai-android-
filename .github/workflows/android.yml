@@ -127,7 +127,33 @@ jobs:
           emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim
           disable-animations: true
           script: |
-            bash -lc 'set -euo pipefail; mkdir -p artifacts/emulator; timeout 120s adb wait-for-device; for attempt in $(seq 1 60); do booted="$(adb shell getprop sys.boot_completed 2>/dev/null | tr -d "\\r" || true)"; if [ "$booted" = "1" ]; then break; fi; sleep 5; done; test "$(adb shell getprop sys.boot_completed | tr -d "\\r")" = "1"; adb devices -l; for attempt in 1 2 3 4; do if gradle connectedDebugAndroidTest --no-daemon --stacktrace --info; then exit 0; else status=$?; if [ "$attempt" -eq 4 ]; then exit "$status"; fi; delay=$((attempt * 30)); echo "Gradle test attempt $attempt failed; retrying in ${delay}s to ride out transient Maven rate limits..."; sleep "$delay"; fi; done'
+            set -euo pipefail
+            mkdir -p artifacts/emulator
+            timeout 120s adb wait-for-device
+            for boot_attempt in $(seq 1 60); do
+              booted="$(adb shell getprop sys.boot_completed 2>/dev/null | tr -d "\\r" || true)"
+              if [ "$booted" = "1" ]; then break; fi
+              sleep 5
+            done
+            test "$(adb shell getprop sys.boot_completed | tr -d "\\r")" = "1"
+            adb devices -l
+            success=0
+            last_status=1
+            for attempt in 1 2 3 4; do
+              if gradle connectedDebugAndroidTest --no-daemon --stacktrace --info; then
+                success=1
+                break
+              else
+                last_status=$?
+                if [ "$attempt" -lt 4 ]; then
+                  delay=$((attempt * 30))
+                  echo "Gradle test attempt $attempt failed; retrying in ${delay}s to ride out transient Maven rate limits..."
+                  sleep "$delay"
+                fi
+              fi
+            done
+            if [ "$success" -ne 1 ]; then exit "$last_status"; fi
+            echo "Android emulator tests completed successfully."
 
       - name: Capture runner diagnostics if emulator action failed before test script
         if: always()
