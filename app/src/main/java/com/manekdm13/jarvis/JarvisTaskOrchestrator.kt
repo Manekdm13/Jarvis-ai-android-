@@ -1,6 +1,5 @@
 package com.manekdm13.jarvis
 
-import org.json.JSONArray
 import org.json.JSONObject
 
 /**
@@ -31,12 +30,13 @@ internal object JarvisTaskOrchestrator {
             val json = JSONObject(raw.substring(start, end + 1))
             val source = json.optJSONArray("steps") ?: return null
             if (source.length() == 0) return null
-            val steps = (0 until minOf(source.length(), MAX_STEPS)).map { index ->
+            val steps = mutableListOf<JarvisPlanStep>()
+            for (index in 0 until minOf(source.length(), MAX_STEPS)) {
                 val item = source.optJSONObject(index) ?: return null
                 val title = item.optString("title").trim()
                 val instruction = item.optString("instruction").trim()
                 if (title.isBlank() || instruction.isBlank()) return null
-                JarvisPlanStep(
+                steps += JarvisPlanStep(
                     id = "step-${index + 1}",
                     title = title.take(120),
                     instruction = instruction.take(2_000),
