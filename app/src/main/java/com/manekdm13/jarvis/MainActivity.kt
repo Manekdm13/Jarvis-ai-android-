@@ -12,6 +12,8 @@ import android.speech.RecognizerIntent
 import android.speech.tts.TextToSpeech
 import android.widget.Toast
 import androidx.activity.ComponentActivity
+import androidx.lifecycle.Observer
+import androidx.work.WorkInfo
 import androidx.activity.compose.setContent
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -123,6 +125,9 @@ private fun JarvisApp(onSpeak: (String) -> Unit) {
     var webAgentGoal by remember { mutableStateOf("") }
     var webAgentStatus by remember { mutableStateOf("") }
     var isRunningWebAgent by remember { mutableStateOf(false) }
+    var backgroundTaskId by remember { mutableStateOf<String?>(null) }
+    var backgroundTaskStatus by remember { mutableStateOf("") }
+    var backgroundTaskResult by remember { mutableStateOf("") }
     var showSettings by remember { mutableStateOf(false) }
     var showRemember by remember { mutableStateOf(false) }
     var rememberSearch by remember { mutableStateOf("") }
@@ -156,6 +161,35 @@ private fun JarvisApp(onSpeak: (String) -> Unit) {
             ?.getStringArrayListExtra(RecognizerIntent.EXTRA_RESULTS)
             ?.firstOrNull()
         if (!spoken.isNullOrBlank()) input = spoken
+    }
+
+    DisposableEffect(backgroundTaskId) {
+        val taskId = backgroundTaskId
+        if (taskId == null) {
+            onDispose { }
+        } else {
+            val liveData = JarvisTaskScheduler.observe(context, taskId)
+            val observer = Observer<List<WorkInfo>> { workInfos ->
+                val info = workInfos.firstOrNull() ?: return@Observer
+                backgroundTaskStatus = info.progress.getString(JarvisTaskWorker.KEY_STATUS)
+                    ?: info.state.name.lowercase().replace('_', ' ')
+                when (info.state) {
+                    WorkInfo.State.SUCCEEDED -> {
+                        backgroundTaskStatus = "Completed"
+                        backgroundTaskResult = info.outputData.getString(JarvisTaskWorker.KEY_RESULT).orEmpty()
+                    }
+                    WorkInfo.State.FAILED -> {
+                        backgroundTaskStatus = "Failed"
+                        backgroundTaskResult = info.outputData.getString(JarvisTaskWorker.KEY_ERROR)
+                            ?: "JARVIS could not complete this background task."
+                    }
+                    WorkInfo.State.CANCELLED -> backgroundTaskStatus = "Cancelled"
+                    else -> Unit
+                }
+            }
+            liveData.observeForever(observer)
+            onDispose { liveData.removeObserver(observer) }
+        }
     }
 
     fun sendMessage() {
@@ -570,6 +604,51 @@ private fun JarvisApp(onSpeak: (String) -> Unit) {
                             enabled = !isThinking && !isRunningWebAgent,
                             shape = RoundedCornerShape(14.dp)
                         ) { Text("🌐  TinyFish Web Agent") }
+                        OutlinedButton(
+                            onClick = {
+                                val goal = input.trim()
+                                if (goal.isNotBlank()) {
+                                    val taskId = java.util.UUID.randomUUID().toString()
+                                    runCatching { JarvisTaskScheduler.enqueue(context, taskId, goal) }
+                                        .onSuccess {
+                                            backgroundTaskId = taskId
+                                            backgroundTaskStatus = "Queued"
+                                            backgroundTaskResult = ""
+                                            input = ""
+                                            Toast.makeText(context, "JARVIS task queued for background execution", Toast.LENGTH_SHORT).show()
+                                        }
+                                        .onFailure { error ->
+                                            backgroundTaskStatus = "Could not queue task: ${error.message ?: "unknown error"}"
+                                        }
+                                }
+                            },
+                            modifier = Modifier.fillMaxWidth(),
+                            enabled = input.isNotBlank() && !isThinking,
+                            shape = RoundedCornerShape(14.dp)
+                        ) { Text("⏱  Run this task in background") }
+                        if (backgroundTaskId != null) {
+                            Card(
+                                shape = RoundedCornerShape(16.dp),
+                                colors = androidx.compose.material3.CardDefaults.cardColors(containerColor = Color(0xFF142A3B))
+                            ) {
+                                Column(
+                                    modifier = Modifier.fillMaxWidth().padding(12.dp),
+                                    verticalArrangement = Arrangement.spacedBy(6.dp)
+                                ) {
+                                    Text("BACKGROUND TASK", color = Color(0xFF70DCEB), style = MaterialTheme.typography.labelSmall)
+                                    Text(backgroundTaskStatus, color = Color(0xFFEAF4FF), style = MaterialTheme.typography.bodyMedium)
+                                    if (backgroundTaskResult.isNotBlank()) {
+                                        Text(backgroundTaskResult, color = Color(0xFFB9CCDE), style = MaterialTheme.typography.bodySmall)
+                                    }
+                                    if (backgroundTaskStatus !in listOf("Completed", "Failed", "Cancelled")) {
+                                        TextButton(onClick = {
+                                            backgroundTaskId?.let { JarvisTaskScheduler.cancel(context, it) }
+                                            backgroundTaskStatus = "Cancellation requested"
+                                        }) { Text("Cancel task") }
+                                    }
+                                }
+                            }
+                        }
                     }
                 }
             }
