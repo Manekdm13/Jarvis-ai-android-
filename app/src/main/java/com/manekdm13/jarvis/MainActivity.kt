@@ -306,7 +306,7 @@ private fun JarvisApp(onSpeak: (String) -> Unit) {
         if (autoLearnedLesson != null) learnedLessons = learningMemory.load()
 
         val learningNotice = if (autoLearnedLesson != null) {
-            "\\n\\nI saved that preference to encrypted local memory."
+            "\n\nI saved that preference to encrypted local memory."
         } else ""
 
         val prepared = resolvePhoneAction(context, question)
