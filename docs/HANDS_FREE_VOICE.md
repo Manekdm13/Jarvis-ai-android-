@@ -52,3 +52,30 @@ This is a spoken conversation, not a chat UI flow. No response should require op
 ## Status
 
 This document defines the intended feature. A passing Android build or emulator test does not mean wake-word detection or background microphone operation is implemented or validated on the owner's phone.
+
+
+## Learn-and-act task engine
+
+JARVIS should also accept open-ended requests such as "learn about X", "research X", "do this task", or "find a way to complete Y". The goal is useful execution, not a plan-only response.
+
+### Expected behavior
+
+- Interpret the goal, identify what success looks like, and start work immediately when the request is clear.
+- Break complex work into small steps, select available tools/capabilities, and execute steps in sequence while tracking progress.
+- For "learn about X", research trustworthy and relevant sources, compare conflicting information, retain a concise knowledge note with source links, and report what was learned. Separate verified facts from uncertainty.
+- For "do X", perform permitted actions using available app/API/device integrations, verify the result where possible, and report completed actions versus blockers. Never claim an action succeeded without evidence.
+- Continue with the next safe step instead of asking for approval at every ordinary step. Ask only when a required detail is missing, a tool is unavailable, or the next action is sensitive, costly, destructive, or externally consequential.
+- When blocked, try a reasonable supported alternative, explain the limitation, and preserve completed work rather than repeatedly retrying the same failure.
+- Keep tasks resumable: save goal, checklist, current step, outputs, source references, and errors so JARVIS can continue after interruption or app restart.
+- Support immediate tasks and explicitly scheduled/background tasks. Show active task status, estimated/observed progress, pause/cancel controls, and a completion summary.
+- Use bounded retries, timeouts, and resource limits. Avoid endless loops, duplicate actions, unnecessary research, and wasting battery/data.
+- Use the owner's consent settings for memory. Do not automatically store every researched item as personal memory; save durable notes to a searchable knowledge store with sources and allow review/deletion.
+- Require owner confirmation before purchases, sending messages, submitting applications/forms, deleting data, changing security settings, or other high-impact actions.
+
+### Task completion standard
+
+A task is complete only when JARVIS has produced the requested output or verified the requested action. If it cannot finish, it should return a concise progress report, what remains, and the exact blocker. It should not present an intention or checklist as completed work.
+
+### Status
+
+This is a product requirement, not yet an implemented autonomous task engine. It requires a task orchestrator, tool registry, durable task storage, source-backed knowledge retrieval, execution/verification logic, and explicit permission boundaries.
