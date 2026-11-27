@@ -4,8 +4,6 @@ import android.accessibilityservice.AccessibilityService
 import android.os.Bundle
 import android.view.accessibility.AccessibilityEvent
 import android.view.accessibility.AccessibilityNodeInfo
-import android.provider.Settings
-import android.text.TextUtils
 
 /**
  * Optional user-enabled bridge for interacting with visible Android UI.
@@ -112,16 +110,5 @@ class JarvisAccessibilityService : AccessibilityService() {
 
         fun readScreen(): String = active?.readVisibleScreen().orEmpty()
 
-        fun isEnabledInSettings(service: JarvisAccessibilityService): Boolean {
-            val enabled = Settings.Secure.getString(
-                service.contentResolver,
-                Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES
-            ) ?: return false
-            val component = "${service.packageName}/${JarvisAccessibilityService::class.java.name}"
-            return TextUtils.SimpleStringSplitter(':').run {
-                setString(enabled)
-                any { it.equals(component, ignoreCase = true) }
-            }
-        }
     }
 }
