@@ -39,7 +39,27 @@ internal object AiGatewayClient {
                 localFingerprint == serverFingerprint -> "Saved app token MATCHES the Worker."
                 else -> "Saved app token DOES NOT MATCH the Worker. The 64-character token values must be identical."
             }
-            return "Android reached the gateway. $authStatus"
+            val providers = json.optJSONObject("providers")
+            val aiNames = listOf(
+                "Gemini" to "gemini",
+                "Groq" to "groq",
+                "OpenRouter" to "openrouter",
+                "Cloudflare Workers AI" to "workers_ai"
+            ).filter { (_, key) -> providers?.optBoolean(key, false) == true }
+                .map { it.first }
+            val researchNames = listOf(
+                "Cloudflare Browser" to "cloudflare_browser",
+                "TinyFish" to "tinyfish"
+            ).filter { (_, key) -> providers?.optBoolean(key, false) == true }
+                .map { it.first }
+            val capabilityStatus = buildString {
+                append("AI providers: ")
+                append(aiNames.takeIf { it.isNotEmpty() }?.joinToString() ?: "none configured")
+                append(". Web research: ")
+                append(researchNames.takeIf { it.isNotEmpty() }?.joinToString() ?: "none configured")
+                append(".")
+            }
+            return "Android reached the gateway. $authStatus $capabilityStatus"
         } finally {
             connection.disconnect()
         }
