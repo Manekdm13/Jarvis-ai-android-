@@ -22,7 +22,7 @@ Native Kotlin + Jetpack Compose Android application. The current main-branch app
 
 - **Offline on-device AI:** not implemented. Cloudflare Workers AI is an online service and is not an offline fallback. The Redmi Note 13 4G model/runtime plan is still in draft PR [#19](https://github.com/Manekdm13/Jarvis-ai-android-/pull/19).
 - **Full phone control:** no general-purpose AccessibilityService automation for reading screen elements, tapping, scrolling, or typing.
-- Wake-word / always-listening service.
+- Wake-word / always-listening service. A hands-free voice companion is specified in draft PR [#?](docs/HANDS_FREE_VOICE.md); implementation and physical-device validation are still pending.
 - Notification listener and notification summarisation.
 - Complete local reminder/background task manager.
 - Scholarship application workspace.
