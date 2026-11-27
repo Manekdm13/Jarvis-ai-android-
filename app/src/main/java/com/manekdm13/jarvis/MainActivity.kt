@@ -411,12 +411,12 @@ private fun JarvisApp(onSpeak: (String) -> Unit) {
                 ) {
                     Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
                         Text(
-                            "J.A.R.V.I.S",
+                            "JARVIS",
                             style = MaterialTheme.typography.headlineMedium,
                             color = Color(0xFFEAF7FF)
                         )
                         Text(
-                            "PERSONAL INTELLIGENCE SYSTEM",
+                            "Your personal AI assistant",
                             style = MaterialTheme.typography.labelSmall,
                             color = Color(0xFF80A5C4)
                         )
@@ -434,67 +434,43 @@ private fun JarvisApp(onSpeak: (String) -> Unit) {
                     }
                 }
 
-                JarvisCore(isThinking = isThinking)
-
-                Card(
-                    shape = RoundedCornerShape(22.dp),
-                    colors = androidx.compose.material3.CardDefaults.cardColors(
-                        containerColor = Color(0xFF12243A)
-                    ),
+                Surface(
+                    shape = RoundedCornerShape(24.dp),
+                    color = Color(0xCC111F31),
                     modifier = Modifier.fillMaxWidth()
                 ) {
                     Row(
-                        modifier = Modifier.fillMaxWidth().padding(14.dp),
-                        horizontalArrangement = Arrangement.SpaceBetween,
+                        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 14.dp),
+                        horizontalArrangement = Arrangement.spacedBy(12.dp),
                         verticalAlignment = androidx.compose.ui.Alignment.CenterVertically
                     ) {
-                        Column(modifier = Modifier.weight(1f)) {
-                            Text("Your assistant is ready", color = Color(0xFFEAF7FF), style = MaterialTheme.typography.titleMedium)
+                        Box(
+                            modifier = Modifier.size(42.dp)
+                                .background(
+                                    Brush.linearGradient(listOf(Color(0xFF35D6D0), Color(0xFF4D8DFF))),
+                                    CircleShape
+                                ),
+                            contentAlignment = androidx.compose.ui.Alignment.Center
+                        ) {
+                            Text("J", color = Color(0xFF06131D), style = MaterialTheme.typography.titleLarge)
+                        }
+                        Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
                             Text(
-                                "Ask anything. Your phone actions stay under your control.",
-                                color = Color(0xFF9DB5CD),
+                                if (isThinking) "JARVIS is thinking" else "What can I help with?",
+                                color = Color(0xFFF0F7FF),
+                                style = MaterialTheme.typography.titleMedium
+                            )
+                            Text(
+                                "Ask • Research • Plan • Get things done",
+                                color = Color(0xFF9CB4CE),
                                 style = MaterialTheme.typography.bodySmall
                             )
                         }
-                        Button(
-                            onClick = {
-                                if (!isCheckingUpdate) {
-                                    isCheckingUpdate = true
-                                    updateStatus = "Checking for a new JARVIS release…"
-                                    scope.launch {
-                                        try {
-                                            val update = AppUpdater.check()
-                                            if (update == null) {
-                                                updateStatus = "You're using the latest published release."
-                                            } else if (
-                                                Build.VERSION.SDK_INT >= Build.VERSION_CODES.O &&
-                                                !context.packageManager.canRequestPackageInstalls()
-                                            ) {
-                                                updateStatus = "Allow JARVIS to install updates, then check again."
-                                                context.startActivity(
-                                                    Intent(
-                                                        Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES,
-                                                        Uri.parse("package:${context.packageName}")
-                                                    )
-                                                )
-                                            } else {
-                                                updateStatus = "Downloading JARVIS ${update.versionName}…"
-                                                AppUpdater.downloadAndInstall(context, update)
-                                                updateStatus = "Android installer opened. Confirm the update there."
-                                            }
-                                        } catch (error: Exception) {
-                                            updateStatus = "Update check failed: ${error.message ?: "unknown error"}"
-                                        } finally {
-                                            isCheckingUpdate = false
-                                        }
-                                    }
-                                }
-                            },
-                            enabled = !isCheckingUpdate,
-                            shape = RoundedCornerShape(14.dp)
-                        ) {
-                            Text(if (isCheckingUpdate) "…" else "Update")
-                        }
+                        Text(
+                            if (gatewayUrl.startsWith("https://") && gatewayToken.isNotBlank()) "ONLINE" else "LOCAL",
+                            color = if (gatewayUrl.startsWith("https://") && gatewayToken.isNotBlank()) Color(0xFF79E6D0) else Color(0xFFFFC56E),
+                            style = MaterialTheme.typography.labelSmall
+                        )
                     }
                 }
 
