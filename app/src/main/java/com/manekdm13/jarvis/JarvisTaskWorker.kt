@@ -59,8 +59,18 @@ internal class JarvisTaskWorker(
 
             // Only explicitly saved, encrypted profile context is shared with the online gateway.
             val savedProfile = UserProfileMemory(applicationContext).loadSaved()
-            val taskContext = if (savedProfile.isBlank()) "" else
-                "USER PROFILE (explicitly saved by the user):\n$savedProfile"
+            val learnedLessons = JarvisLearningMemory(applicationContext).load()
+            val taskContext = buildString {
+                if (savedProfile.isNotBlank()) {
+                    append("USER PROFILE (explicitly saved by the user):\\n")
+                    append(savedProfile)
+                    append("\\n\\n")
+                }
+                if (learnedLessons.isNotEmpty()) {
+                    append("LONG-TERM USER-DIRECTED LESSONS (encrypted local memory):\\n")
+                    append(learnedLessons.joinToString("\\n") { "- $it" })
+                }
+            }
 
             // Ask the model for a bounded plan, validate it locally, then execute
             // each reasoning step in order. If the provider cannot return valid JSON,
