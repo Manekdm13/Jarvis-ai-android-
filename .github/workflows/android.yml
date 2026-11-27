@@ -126,47 +126,7 @@ jobs:
           disable-linux-hw-accel: false
           emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim
           disable-animations: true
-          script: |
-            # The emulator action invokes its script with /bin/sh, not Bash.
-            # POSIX set -eu is portable and all commands below are POSIX-compatible.
-            set -eu
-            mkdir -p artifacts/emulator
-            # The hosted emulator occasionally appears as "offline" for a short
-            # period after boot. Reconnect ADB before treating that as a test failure.
-            booted=0
-            for boot_attempt in $(seq 1 90); do
-              adb start-server >/dev/null 2>&1 || true
-              adb reconnect offline >/dev/null 2>&1 || true
-              device_state="$(adb devices | awk '/emulator-/{print $2; exit}')"
-              if [ "$device_state" = "device" ]; then
-                boot_flag="$(adb shell getprop sys.boot_completed 2>/dev/null | tr -d "\\r" || true)"
-                if [ "$boot_flag" = "1" ]; then booted=1; break; fi
-              fi
-              echo "Waiting for emulator ADB (attempt $boot_attempt; state=${device_state:-missing})"
-              sleep 5
-            done
-            if [ "$booted" -ne 1 ]; then
-              adb devices -l || true
-              exit 1
-            fi
-            adb devices -l
-            success=0
-            last_status=1
-            for attempt in 1 2 3 4; do
-              if gradle testDebugUnitTest connectedDebugAndroidTest --no-daemon --stacktrace --info; then
-                success=1
-                break
-              else
-                last_status=$?
-                if [ "$attempt" -lt 4 ]; then
-                  delay=$((attempt * 30))
-                  echo "Gradle test attempt $attempt failed; retrying in ${delay}s to ride out transient Maven rate limits..."
-                  sleep "$delay"
-                fi
-              fi
-            done
-            if [ "$success" -ne 1 ]; then exit "$last_status"; fi
-            echo "Android emulator tests completed successfully."
+          script: gradle testDebugUnitTest connectedDebugAndroidTest --no-daemon --stacktrace --info
 
       - name: Capture runner diagnostics if emulator action failed before test script
         if: always()
