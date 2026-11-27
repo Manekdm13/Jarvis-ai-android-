@@ -56,6 +56,11 @@ internal class JarvisTaskWorker(
                 .putInt(KEY_PROGRESS, 35)
                 .build())
 
+            // Only explicitly saved, encrypted profile context is shared with the online gateway.
+            val savedProfile = UserProfileMemory(applicationContext).loadSaved()
+            val taskContext = if (savedProfile.isBlank()) "" else
+                "USER PROFILE (explicitly saved by the user):\\n$savedProfile"
+
             val answer = AiGatewayClient.reply(
                 baseUrl = gatewayUrl,
                 token = token,
@@ -63,7 +68,7 @@ internal class JarvisTaskWorker(
                     "Make useful progress immediately. Be truthful about what you completed, " +
                     "what you could not do, and the exact next blocker. Do not claim external " +
                     "actions were performed unless verified. Ask for approval before irreversible actions.",
-                history = ""
+                history = taskContext
             )
 
             Result.success(Data.Builder()
