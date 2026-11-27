@@ -57,7 +57,7 @@ internal object JarvisTaskOrchestrator {
             Overall goal: $goal
             Current step: ${step.title}
             Instruction: ${step.instruction}
-            Earlier verified step outputs:
+            Earlier step outputs (not independently verified):
             ${prior.ifBlank { "None; this is the first step." }}
             Perform this step now. Give the useful result, cite sources when available,
             state uncertainty, and do not claim to have changed external systems or the
