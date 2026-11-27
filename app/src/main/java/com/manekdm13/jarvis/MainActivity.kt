@@ -214,6 +214,52 @@ private fun JarvisApp(onSpeak: (String) -> Unit) {
                 }
                 return
             }
+            normalizedQuestion.equals("learn from this conversation", ignoreCase = true) -> {
+                if (gatewayUrl.isBlank() || gatewayToken.isBlank()) {
+                    record(question, "Configure the AI gateway first. I won't send conversation data anywhere until you explicitly ask me to learn from it.")
+                } else {
+                    isThinking = true
+                    val conversationSnapshot = messages.takeLast(30).joinToString("\n").take(10_000)
+                    scope.launch {
+                        val result = withContext(Dispatchers.IO) {
+                            runCatching {
+                                AiGatewayClient.reply(
+                                    gatewayUrl,
+                                    gatewayToken,
+                                    "Extract only durable user preferences, corrections, and reusable workflow lessons explicitly expressed in this conversation. Do not extract sensitive personal data, credentials, private messages, one-off facts, or assumptions. Return ONLY a JSON array of short strings, maximum 10 items. If nothing reusable exists, return [].",
+                                    conversationSnapshot
+                                )
+                            }
+                        }
+                        isThinking = false
+                        val saved = result.getOrNull()?.let { raw ->
+                            runCatching {
+                                val start = raw.indexOf('[')
+                                val end = raw.lastIndexOf(']')
+                                if (start < 0 || end < start) throw IllegalArgumentException("No JSON lesson list returned")
+                                val array = org.json.JSONArray(raw.substring(start, end + 1))
+                                var count = 0
+                                for (index in 0 until minOf(array.length(), 10)) {
+                                    val lesson = array.optString(index).trim()
+                                    if (lesson.isNotBlank() && learningMemory.remember(lesson)) count++
+                                }
+                                count
+                            }.getOrNull()
+                        }
+                        learnedLessons = learningMemory.load()
+                        record(
+                            question,
+                            when {
+                                result.isFailure -> "I couldn't review this conversation: ${result.exceptionOrNull()?.message ?: "AI request failed"}"
+                                saved == null -> "I couldn't validate the learning summary, so nothing was saved."
+                                saved == 0 -> "I found no durable, reusable lessons worth saving."
+                                else -> "I reviewed this conversation at your request and saved $saved reusable lesson(s) to encrypted memory. You can inspect or remove them any time."
+                            }
+                        )
+                    }
+                }
+                return
+            }
             normalizedQuestion.equals("what have you learned", ignoreCase = true) ||
                 normalizedQuestion.equals("show learned memory", ignoreCase = true) -> {
                 learnedLessons = learningMemory.load()
