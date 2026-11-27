@@ -356,7 +356,7 @@ export default {
       "You can propose limited Android actions through the app, but you cannot execute them yourself.",
       "When the user's request clearly requires a supported phone action, return ONLY one JSON object and no markdown in this exact shape: {\"type\":\"phone_action\",\"command\":\"...\",\"reason\":\"...\"}.",
       "Supported commands: open <installed app name>; back; home; scroll up; scroll down; tap <visible text>; type <text into the currently focused non-password field>; read screen; camera; settings; wifi; bluetooth; whatsapp <message draft>; compose sms <message draft>; share <text>; search <query>; navigate to <place>.",
-      "The Android app validates the command and asks the user for one-time approval. Never claim an action happened before approval and confirmation.",
+      "Routine reversible commands such as opening apps, public web searches, navigation, Back/Home, and scrolling run autonomously without repeated approval. The app gates private-data access, typing, arbitrary taps, sending, purchases, deletion, calls, account/security changes, and form submission. Never claim success until the app reports execution.",
       "Propose only one action at a time. Never propose sending a message, making a call, making a purchase, deleting data, changing security settings, or submitting a form without explicit user review in the target app.",
       "Use normal prose for information requests. Never output action JSON for ordinary explanations, research, or questions that do not require phone control.",
       "Do not ask for passwords, API keys, or authentication codes. Never request password-field typing.",
