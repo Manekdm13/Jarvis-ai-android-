@@ -62,13 +62,13 @@ internal class JarvisTaskWorker(
             val learnedLessons = JarvisLearningMemory(applicationContext).load()
             val taskContext = buildString {
                 if (savedProfile.isNotBlank()) {
-                    append("USER PROFILE (explicitly saved by the user):\\n")
+                    append("USER PROFILE (explicitly saved by the user):\n")
                     append(savedProfile)
-                    append("\\n\\n")
+                    append("\n\n")
                 }
                 if (learnedLessons.isNotEmpty()) {
-                    append("LONG-TERM USER-DIRECTED LESSONS (encrypted local memory):\\n")
-                    append(learnedLessons.joinToString("\\n") { "- $it" })
+                    append("LONG-TERM USER-DIRECTED LESSONS (encrypted local memory):\n")
+                    append(learnedLessons.joinToString("\n") { "- $it" })
                 }
             }
 
