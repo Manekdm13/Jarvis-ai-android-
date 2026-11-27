@@ -29,5 +29,7 @@ class JarvisTaskOrchestratorTest {
         assertTrue(prompt.contains("Option A is fully funded."))
         assertTrue(prompt.contains("Compare the verified options"))
         assertTrue(prompt.contains("Do not reveal private chain-of-thought"))
+        assertTrue(prompt.contains("not independently verified"))
+        assertTrue(prompt.contains("verify important claims"))
     }
 }
