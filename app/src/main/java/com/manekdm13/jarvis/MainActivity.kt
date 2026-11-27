@@ -299,18 +299,28 @@ private fun JarvisApp(onSpeak: (String) -> Unit) {
                 return
             }
         }
+        // Learn only durable preferences stated in explicit instruction language.
+        // Extraction and encryption happen locally; ordinary conversation is not stored.
+        val autoLearnedLesson = JarvisAutoLearning.extractExplicitLesson(normalizedQuestion)
+            ?.takeIf { learningMemory.remember(it) }
+        if (autoLearnedLesson != null) learnedLessons = learningMemory.load()
+
+        val learningNotice = if (autoLearnedLesson != null) {
+            "\\n\\nI saved that preference to encrypted local memory."
+        } else ""
+
         val prepared = resolvePhoneAction(context, question)
         when {
             prepared?.first != null -> {
                 val action = prepared.first!!
                 if (JarvisActionPolicy.canAutoExecute(question)) {
-                    record(question, executeAutonomousSafeAction(context, action))
+                    record(question, executeAutonomousSafeAction(context, action) + learningNotice)
                 } else {
                     pendingAction = action
                     record(question, "This action needs your review before execution.")
                 }
             }
-            prepared != null -> record(question, prepared.second)
+            prepared != null -> record(question, prepared.second + learningNotice)
             else -> {
                 if (gatewayUrl.isBlank()) {
                     record(question, "Online AI is not configured yet. Paste your Cloudflare Worker URL into the AI gateway URL field above.")
@@ -339,7 +349,7 @@ private fun JarvisApp(onSpeak: (String) -> Unit) {
                             onSuccess = { reply ->
                                 val proposal = JarvisActionProtocol.parse(reply)
                                 if (proposal == null) {
-                                    record(question, reply)
+                                    record(question, reply + learningNotice)
                                 } else {
                                     val prepared = resolvePhoneAction(context, proposal.command)
                                     if (prepared?.first != null) {
@@ -361,7 +371,7 @@ private fun JarvisApp(onSpeak: (String) -> Unit) {
                                 }
                             },
                             onFailure = { error ->
-                                record(question, "I couldn't reach the AI gateway: ${error.message ?: "unknown network error"}")
+                                record(question, "I couldn't reach the AI gateway: ${error.message ?: "unknown network error"}" + learningNotice)
                             }
                         )
                     }
