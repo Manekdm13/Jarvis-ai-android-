@@ -898,6 +898,38 @@ private fun resolvePhoneAction(
     if (command == "camera" || command == "open camera") {
         return approval("Open camera", "JARVIS will open the camera. It will not take a photo automatically.", Intent(MediaStore.ACTION_IMAGE_CAPTURE))
     }
+    if (command in setOf("gallery", "open gallery", "photos", "open photos", "choose a photo", "select an image")) {
+        val picker = Intent(Intent.ACTION_GET_CONTENT).apply {
+            type = "image/*"
+            addCategory(Intent.CATEGORY_OPENABLE)
+        }
+        return approval(
+            "Choose a photo",
+            "Android will show its photo picker. JARVIS receives only the item you explicitly select.",
+            Intent.createChooser(picker, "Choose a photo")
+        )
+    }
+    if (command in setOf("files", "open files", "file manager", "browse files", "choose a file")) {
+        val picker = Intent(Intent.ACTION_OPEN_DOCUMENT).apply {
+            type = "*/*"
+            addCategory(Intent.CATEGORY_OPENABLE)
+        }
+        return approval(
+            "Choose a file",
+            "Android will show its document picker. JARVIS receives only the file you explicitly select.",
+            picker
+        )
+    }
+    if (command in setOf("notification settings", "open notification settings")) {
+        val notifications = Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS).apply {
+            putExtra(Settings.EXTRA_APP_PACKAGE, context.packageName)
+        }
+        return approval(
+            "Open JARVIS notification settings",
+            "Open Android's notification controls for JARVIS.",
+            notifications
+        )
+    }
     if (command == "call" || command.contains("open phone") || command.contains("dialer")) {
         return approval("Open phone dialer", "JARVIS will open the dialer, not place a call.", Intent(Intent.ACTION_DIAL))
     }
@@ -922,16 +954,24 @@ private fun resolvePhoneAction(
     }
     if (command.startsWith("open ")) {
         val requested = command.removePrefix("open ").trim()
-        val packageName = launchers[requested]
-        if (packageName != null) {
-            val appIntent = context.packageManager.getLaunchIntentForPackage(packageName)
-                ?: return null to "I couldn't find $requested installed on this device."
+        val knownPackage = launchers[requested]
+        val matchedPackage = knownPackage ?: runCatching {
+            context.packageManager.getInstalledApplications(0).firstOrNull { appInfo ->
+                val label = context.packageManager.getApplicationLabel(appInfo).toString()
+                label.equals(requested, ignoreCase = true) ||
+                    label.contains(requested, ignoreCase = true) && requested.length >= 4
+            }?.packageName
+        }.getOrNull()
+        if (matchedPackage != null) {
+            val appIntent = context.packageManager.getLaunchIntentForPackage(matchedPackage)
+                ?: return null to "I found $requested, but Android did not provide a launch action."
             return approval(
                 "Open $requested",
-                "Launch $requested. No other app data will be accessed.",
+                "Launch the selected app. JARVIS will not read its private data.",
                 appIntent
             )
         }
+        return null to "I couldn't find an installed app named $requested."
     }
     return null
 }
