@@ -74,6 +74,24 @@ private data class PendingPhoneAction(
     val accessibilityCommand: String? = null
 )
 
+/** Executes only commands admitted by JarvisActionPolicy; all other actions stay in the approval dialog. */
+private fun executeAutonomousSafeAction(context: Context, action: PendingPhoneAction): String {
+    return try {
+        val command = action.accessibilityCommand
+        if (command != null) {
+            val ok = JarvisAccessibilityService.execute(command)
+            if (ok) "Completed autonomously: ${action.title}."
+            else "I couldn't complete ${action.title}. Enable JARVIS phone control in Android Accessibility settings and retry."
+        } else {
+            val intent = action.intent ?: return "I couldn't prepare this action."
+            context.startActivity(intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+            "Completed autonomously: ${action.title}."
+        }
+    } catch (error: Exception) {
+        "The action failed: ${error.message ?: "Android reported an error"}."
+    }
+}
+
 class MainActivity : ComponentActivity() {
     private var tts: TextToSpeech? = null
 
@@ -284,8 +302,13 @@ private fun JarvisApp(onSpeak: (String) -> Unit) {
         val prepared = resolvePhoneAction(context, question)
         when {
             prepared?.first != null -> {
-                pendingAction = prepared.first
-                record(question, "I have prepared that phone action. Please review and approve it before I proceed.")
+                val action = prepared.first!!
+                if (JarvisActionPolicy.canAutoExecute(question)) {
+                    record(question, executeAutonomousSafeAction(context, action))
+                } else {
+                    pendingAction = action
+                    record(question, "This action needs your review before execution.")
+                }
             }
             prepared != null -> record(question, prepared.second)
             else -> {
@@ -320,11 +343,16 @@ private fun JarvisApp(onSpeak: (String) -> Unit) {
                                 } else {
                                     val prepared = resolvePhoneAction(context, proposal.command)
                                     if (prepared?.first != null) {
-                                        pendingAction = prepared.first
-                                        record(
-                                            question,
-                                            "I propose this phone action: ${proposal.command}. ${proposal.reason} Review the approval request before I do anything."
-                                        )
+                                        val action = prepared.first!!
+                                        if (JarvisActionPolicy.canAutoExecute(proposal.command)) {
+                                            record(question, executeAutonomousSafeAction(context, action))
+                                        } else {
+                                            pendingAction = action
+                                            record(
+                                                question,
+                                                "I propose this action: ${proposal.command}. ${proposal.reason} This action requires your review."
+                                            )
+                                        }
                                     } else {
                                         val detail = prepared?.second?.takeIf { it.isNotBlank() }
                                             ?: "That action is not supported by the current phone-control allowlist."
@@ -507,7 +535,7 @@ private fun JarvisApp(onSpeak: (String) -> Unit) {
                                 style = MaterialTheme.typography.labelMedium
                             )
                             Text(
-                                "Enable JARVIS in Android Accessibility settings to allow visible taps, scrolling, typing into focused non-password fields, and Back/Home actions. Every action still asks for one-time approval here.",
+                                "Enable JARVIS in Android Accessibility settings once to allow visible UI control. Routine reversible actions can then run autonomously; private-data access, typing, arbitrary taps, and sensitive actions remain review-gated.",
                                 color = Color(0xFF9DB5CD),
                                 style = MaterialTheme.typography.bodySmall
                             )
