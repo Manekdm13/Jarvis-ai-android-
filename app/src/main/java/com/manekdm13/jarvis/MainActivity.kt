@@ -70,7 +70,8 @@ private data class PendingPhoneAction(
     val title: String,
     val explanation: String,
     val requestedCommand: String,
-    val intent: Intent
+    val intent: Intent? = null,
+    val accessibilityCommand: String? = null
 )
 
 class MainActivity : ComponentActivity() {
@@ -390,6 +391,23 @@ private fun JarvisApp(onSpeak: (String) -> Unit) {
                                 singleLine = true,
                                 visualTransformation = PasswordVisualTransformation()
                             )
+                            Text(
+                                "PHONE CONTROL (OPTIONAL)",
+                                color = Color(0xFF70DCEB),
+                                style = MaterialTheme.typography.labelMedium
+                            )
+                            Text(
+                                "Enable JARVIS in Android Accessibility settings to allow visible taps, scrolling, typing into focused non-password fields, and Back/Home actions. Every action still asks for one-time approval here.",
+                                color = Color(0xFF9DB5CD),
+                                style = MaterialTheme.typography.bodySmall
+                            )
+                            OutlinedButton(
+                                onClick = {
+                                    context.startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS))
+                                },
+                                modifier = Modifier.fillMaxWidth(),
+                                shape = RoundedCornerShape(14.dp)
+                            ) { Text("Enable JARVIS phone control") }
                             Button(
                                 onClick = {
                                     gatewayTestStatus = "Testing connection from the JARVIS app…"
@@ -744,12 +762,21 @@ private fun JarvisApp(onSpeak: (String) -> Unit) {
                 Button(onClick = {
                     pendingAction = null
                     try {
-                        context.startActivity(
-                            action.intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                        )
-                        record(action.requestedCommand, "Approved. I opened the requested Android screen or app.")
-                    } catch (_: Exception) {
-                        record(action.requestedCommand, "Android could not open that action on this device.")
+                        val accessibilityCommand = action.accessibilityCommand
+                        if (accessibilityCommand != null) {
+                            val executed = JarvisAccessibilityService.execute(accessibilityCommand)
+                            record(
+                                action.requestedCommand,
+                                if (executed) "Approved and executed on the visible screen."
+                                else "I could not perform that action. Enable JARVIS phone control in Android Accessibility settings and make sure the target screen or field is ready."
+                            )
+                        } else {
+                            val intent = action.intent ?: error("No action was prepared")
+                            context.startActivity(intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+                            record(action.requestedCommand, "Approved. I opened the requested Android screen or app.")
+                        }
+                    } catch (error: Exception) {
+                        record(action.requestedCommand, "Android could not perform that action: ${error.message ?: "unknown error"}")
                     }
                 }) { Text("Approve once") }
             },
@@ -878,7 +905,32 @@ private fun resolvePhoneAction(
     )
 
     fun approval(title: String, explanation: String, intent: Intent) =
-        PendingPhoneAction(title, explanation, rawCommand, intent) to ""
+        PendingPhoneAction(title, explanation, rawCommand, intent = intent) to ""
+    fun accessibilityApproval(title: String, explanation: String, action: String) =
+        PendingPhoneAction(title, explanation, rawCommand, accessibilityCommand = action) to ""
+
+    if (command == "back" || command == "go back") {
+        return accessibilityApproval("Navigate back", "JARVIS will perform Android's Back action on the current screen.", "back")
+    }
+    if (command == "home" || command == "go home") {
+        return accessibilityApproval("Go to Home screen", "JARVIS will return to your Android Home screen.", "home")
+    }
+    if (command == "scroll down") {
+        return accessibilityApproval("Scroll down", "JARVIS will scroll the current visible screen down.", "scroll_down")
+    }
+    if (command == "scroll up") {
+        return accessibilityApproval("Scroll up", "JARVIS will scroll the current visible screen up.", "scroll_up")
+    }
+    if (command.startsWith("tap ") || command.startsWith("click ")) {
+        val target = rawCommand.substringAfter(' ').trim()
+        if (target.isBlank()) return null to "Tell me the visible button or text you want me to tap."
+        return accessibilityApproval("Tap visible control: $target", "JARVIS will look for this text on the current screen and tap its clickable control if found.", "tap:$target")
+    }
+    if (command.startsWith("type ")) {
+        val value = rawCommand.substringAfter(' ').trim()
+        if (value.isBlank()) return null to "Tell me what text to enter in the currently focused field."
+        return accessibilityApproval("Type into focused field", "JARVIS will enter the supplied text into the currently focused non-password field. Check the destination before approving.", "type:$value")
+    }
 
     if (command == "time" || command.contains("what time")) {
         return null to "It's ${SimpleDateFormat("h:mm a", Locale.getDefault()).format(Date())}."
