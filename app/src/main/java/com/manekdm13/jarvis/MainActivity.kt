@@ -223,9 +223,30 @@ private fun JarvisApp(onSpeak: (String) -> Unit) {
                             runCatching { AiGatewayClient.reply(gatewayUrl, gatewayToken, question, history) }
                         }
                         isThinking = false
-                        record(question, answer.getOrElse { error ->
-                            "I couldn't reach the AI gateway: ${error.message ?: "unknown network error"}"
-                        })
+                        answer.fold(
+                            onSuccess = { reply ->
+                                val proposal = JarvisActionProtocol.parse(reply)
+                                if (proposal == null) {
+                                    record(question, reply)
+                                } else {
+                                    val prepared = resolvePhoneAction(context, proposal.command)
+                                    if (prepared?.first != null) {
+                                        pendingAction = prepared.first
+                                        record(
+                                            question,
+                                            "I propose this phone action: ${proposal.command}. ${proposal.reason} Review the approval request before I do anything."
+                                        )
+                                    } else {
+                                        val detail = prepared?.second?.takeIf { it.isNotBlank() }
+                                            ?: "That action is not supported by the current phone-control allowlist."
+                                        record(question, "I couldn't prepare the proposed action. $detail")
+                                    }
+                                }
+                            },
+                            onFailure = { error ->
+                                record(question, "I couldn't reach the AI gateway: ${error.message ?: "unknown network error"}")
+                            }
+                        )
                     }
                 }
             }
