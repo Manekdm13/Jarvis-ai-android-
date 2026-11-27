@@ -61,15 +61,58 @@ internal class JarvisTaskWorker(
             val taskContext = if (savedProfile.isBlank()) "" else
                 "USER PROFILE (explicitly saved by the user):\n$savedProfile"
 
-            val answer = AiGatewayClient.reply(
+            // Ask the model for a bounded plan, validate it locally, then execute
+            // each reasoning step in order. If the provider cannot return valid JSON,
+            // retain a safe single-pass fallback rather than losing the user's task.
+            val planDraft = AiGatewayClient.reply(
                 baseUrl = gatewayUrl,
                 token = token,
-                message = "Act as JARVIS task executor. Work on this user goal now: $goal. " +
-                    "Make useful progress immediately. Be truthful about what you completed, " +
-                    "what you could not do, and the exact next blocker. Do not claim external " +
-                    "actions were performed unless verified. Ask for approval before irreversible actions.",
+                message = JarvisTaskOrchestrator.planningPrompt(goal),
                 history = taskContext
             )
+            val plan = JarvisTaskOrchestrator.parsePlan(
+                raw = planDraft,
+                taskId = taskId,
+                goal = goal,
+                now = System.currentTimeMillis()
+            )
+
+            val answer = if (plan == null) {
+                AiGatewayClient.reply(
+                    baseUrl = gatewayUrl,
+                    token = token,
+                    message = "Act as JARVIS task executor. Work on this user goal now: $goal. " +
+                        "Make useful progress immediately. Be truthful about completed work and blockers. " +
+                        "Do not claim external actions were performed unless verified.",
+                    history = taskContext
+                )
+            } else {
+                val completed = mutableListOf<Pair<String, String>>()
+                plan.steps.forEachIndexed { index, step ->
+                    val progress = 40 + ((index + 1) * 50 / plan.steps.size)
+                    setProgress(Data.Builder()
+                        .putString(KEY_TASK_ID, taskId)
+                        .putString(KEY_STATUS, "Step ${index + 1}/${plan.steps.size}: ${step.title}")
+                        .putInt(KEY_PROGRESS, progress)
+                        .build())
+
+                    val stepResult = AiGatewayClient.reply(
+                        baseUrl = gatewayUrl,
+                        token = token,
+                        message = JarvisTaskOrchestrator.stepPrompt(goal, step, completed),
+                        history = taskContext
+                    )
+                    completed += step.title to stepResult.take(4_000)
+                }
+                buildString {
+                    append("JARVIS completed ${completed.size} planned steps.\n\n")
+                    completed.forEachIndexed { index, item ->
+                        append("${index + 1}. ${item.first}\n")
+                        append(item.second)
+                        if (index != completed.lastIndex) append("\n\n")
+                    }
+                }
+            }
 
             Result.success(Data.Builder()
                 .putString(KEY_TASK_ID, taskId)
