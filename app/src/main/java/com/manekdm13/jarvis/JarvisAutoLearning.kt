@@ -8,7 +8,7 @@ package com.manekdm13.jarvis
  */
 internal object JarvisAutoLearning {
     private val durableMarkers = listOf(
-        "from now on ",
+        "from now on",
         "i prefer ",
         "i want you to ",
         "i want jarvis to ",
@@ -30,10 +30,10 @@ internal object JarvisAutoLearning {
         if (clean.length !in 12..500) return null
         val lower = clean.lowercase()
         if (sensitiveMarkers.any { it in lower }) return null
-        if (Regex("""(?i)\\b\\d{6,}\\b""").containsMatchIn(clean)) return null
+        if (Regex("""(?i)\b\d{6,}\b""").containsMatchIn(clean)) return null
 
         val marker = durableMarkers.firstOrNull { lower.startsWith(it) } ?: return null
-        val preference = clean.substring(marker.length).trim().trimEnd('.', '!', '?')
+        val preference = clean.substring(marker.length).trim().trimStart(',', ':').trim().trimEnd('.', '!', '?')
         if (preference.length < 8) return null
         if (preference.equals("that", ignoreCase = true)) return null
         return "User preference: $preference".take(500)
