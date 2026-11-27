@@ -127,7 +127,9 @@ jobs:
           emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim
           disable-animations: true
           script: |
-            set -euo pipefail
+            # The emulator action invokes its script with /bin/sh, not Bash.
+            # POSIX set -eu is portable and all commands below are POSIX-compatible.
+            set -eu
             mkdir -p artifacts/emulator
             # The hosted emulator occasionally appears as "offline" for a short
             # period after boot. Reconnect ADB before treating that as a test failure.
