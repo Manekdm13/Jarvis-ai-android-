@@ -126,7 +126,8 @@ jobs:
           disable-linux-hw-accel: false
           emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim
           disable-animations: true
-          script: gradle testDebugUnitTest connectedDebugAndroidTest --no-daemon --stacktrace --info --max-workers=2
+          script: |
+            gradle testDebugUnitTest connectedDebugAndroidTest --no-daemon --stacktrace --info --max-workers=2
 
       - name: Capture runner diagnostics if emulator action failed
         if: always()
