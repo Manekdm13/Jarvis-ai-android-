@@ -11,8 +11,8 @@ permissions:
   contents: read
 
 concurrency:
-  group: jarvis-android-ci-${{ github.event.pull_request.number || github.ref }}-${{ github.sha }}
-  cancel-in-progress: false
+  group: jarvis-android-ci-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
 
 jobs:
   worker-typecheck:
