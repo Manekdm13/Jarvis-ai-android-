@@ -17,9 +17,10 @@ import kotlinx.coroutines.withContext
 /**
  * First durable execution primitive for JARVIS.
  *
- * This worker safely runs a user-requested task prompt through the configured
- * JARVIS gateway when the app is no longer in the foreground. It is not yet a
- * multi-step tool-using agent; that orchestration layer will be added separately.
+ * This worker runs a bounded, validated multi-step AI plan through the configured
+ * JARVIS gateway when the app is no longer in the foreground. Steps can reason,
+ * research, and draft using prior results. They do not invoke Android tools or
+ * access private app data; device actions remain in the foreground approval broker.
  */
 internal class JarvisTaskWorker(
     appContext: Context,
