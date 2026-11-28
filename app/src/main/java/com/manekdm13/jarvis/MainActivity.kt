@@ -490,8 +490,11 @@ private fun JarvisApp(onSpeak: (String) -> Unit) {
             }
             prepared != null -> record(question, prepared.second + learningNotice)
             else -> {
-                if (gatewayUrl.isBlank()) {
-                    record(question, "Online AI is not configured yet. Paste your Cloudflare Worker URL into the AI gateway URL field above.")
+                val localSelected = inferenceMode != JarvisInferenceRouter.MODE_CLOUD
+                val localReady = ollamaUrl.isNotBlank() && ollamaModel.isNotBlank()
+                val cloudRequired = !localSelected || allowCloudFallback
+                if ((localSelected && !localReady) || (cloudRequired && (gatewayUrl.isBlank() || gatewayToken.isBlank()))) {
+                    record(question, "Configure the selected AI provider and any explicitly enabled fallback in Connection settings.")
                 } else {
                     isThinking = true
                     val history = buildString {
