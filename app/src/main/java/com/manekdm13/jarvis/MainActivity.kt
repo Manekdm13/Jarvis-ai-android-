@@ -510,11 +510,21 @@ private fun JarvisApp(onSpeak: (String) -> Unit) {
                     }
                     scope.launch {
                         val answer = withContext(Dispatchers.IO) {
-                            runCatching { AiGatewayClient.reply(gatewayUrl, gatewayToken, question, history) }
+                            runCatching {
+                                JarvisInferenceRouter.reply(
+                                    mode = inferenceMode,
+                                    ollamaUrl = ollamaUrl,
+                                    ollamaModel = ollamaModel,
+                                    cloud = { AiGatewayClient.reply(gatewayUrl, gatewayToken, question, history) },
+                                    local = { AiGatewayClient.localReply(ollamaUrl, ollamaModel, "You are JARVIS, a helpful private assistant. Context follows:\\n" + history, question) },
+                                    allowCloudFallback = allowCloudFallback
+                                )
+                            }
                         }
                         isThinking = false
                         answer.fold(
-                            onSuccess = { reply ->
+                            onSuccess = { routed ->
+                                val reply = routed.text + "\\n\\n[Inference: " + routed.provider + (if (routed.fallbackUsed) " fallback" else "") + "]"
                                 val proposal = JarvisActionProtocol.parse(reply)
                                 if (proposal == null) {
                                     record(question, reply + learningNotice)
