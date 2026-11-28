@@ -96,10 +96,10 @@ internal object JarvisActionPolicy {
         return JarvisActionRisk.UNKNOWN
     }
 
-    fun canAutoExecute(rawCommand: String): Boolean = when (classify(rawCommand)) {
-        JarvisActionRisk.ROUTINE_REVERSIBLE, JarvisActionRisk.EXTERNAL_NAVIGATION -> true
-        JarvisActionRisk.PRIVATE_DATA_ACCESS, JarvisActionRisk.USER_INPUT,
-        JarvisActionRisk.EXTERNAL_TRANSMISSION, JarvisActionRisk.IRREVERSIBLE_OR_FINANCIAL,
-        JarvisActionRisk.UNKNOWN -> false
-    }
+    fun canAutoExecute(rawCommand: String): Boolean =
+        JarvisToolRegistry.mayAutoExecute(rawCommand) &&
+            classify(rawCommand) in setOf(
+                JarvisActionRisk.ROUTINE_REVERSIBLE,
+                JarvisActionRisk.EXTERNAL_NAVIGATION
+            )
 }
