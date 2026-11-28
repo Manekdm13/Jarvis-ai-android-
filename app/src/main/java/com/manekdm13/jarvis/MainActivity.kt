@@ -664,7 +664,7 @@ private fun JarvisApp(
                         Text("Choose a section from the 21-section hub.", color = Color(0xFF9DB0C7))
                         OutlinedButton(onClick = { selectedTab = "modules" }) { Text("Back to sections") }
                     } else {
-                        OutlinedButton(onClick = { selectedTab = "modules" }, shape = RoundedCornerShape(14.dp)) { Text("← All 21 sections") }
+                        OutlinedButton(onClick = { selectedTab = "modules"; scope.launch { sectionHubScrollState.scrollTo(0) } }, shape = RoundedCornerShape(14.dp)) { Text("← All 21 sections") }
                         Card(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(24.dp), colors = androidx.compose.material3.CardDefaults.cardColors(containerColor = Color(0xFF11243A))) {
                             Column(Modifier.fillMaxWidth().padding(18.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                                 Text("SPECIALIST WORKSPACE", color = Color(0xFF78DDE8), style = MaterialTheme.typography.labelSmall)
