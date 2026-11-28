@@ -237,10 +237,10 @@ export default {
       // so block consequential website actions until a per-action approval broker
       // exists rather than treating the user's broad task prompt as blanket consent.
       const unnegatedGoal = goal.replace(
-        /\\b(?:do not|don't|never|without|avoid)\\s+(?:please\\s+)?(?:send|submit|publish|post|delete|remove|purchase|buy|pay|transfer|book|reserve|fill out|complete|sign in|log in|modify|change settings)\\b/gi,
+        /\b(?:do not|don't|never|without|avoid)\s+(?:please\s+)?(?:send|submit|publish|post|delete|remove|purchase|buy|pay|transfer|book|reserve|fill out|complete|sign in|log in|modify|change settings)\b/gi,
         ""
       );
-      const consequentialBrowserAction = /\\b(?:send|submit|publish|post|delete|remove|purchase|buy|pay|transfer|book|reserve|fill out|complete (?:the )?form|sign in|log in|modify|change settings)\\b/i;
+      const consequentialBrowserAction = /\b(?:send|submit|publish|post|delete|remove|purchase|buy|pay|transfer|book|reserve|fill out|complete (?:the )?form|sign in|log in|modify|change settings)\b/i;
       if (!env.BROWSER && cleanSecret(env.TINYFISH_API_KEY) && consequentialBrowserAction.test(unnegatedGoal)) {
         return json({
           error: "This task asks TinyFish to perform a consequential website action. TinyFish is restricted to read-only research until action-specific approval is implemented. Use a read-only research goal instead."
