@@ -53,7 +53,7 @@ A task issue created by the repository owner uses a title such as `[JARVIS TASK]
 {"action":"termux_diagnostics"}
 ```
 
-The agent reports status to the authenticated Worker endpoint. Results are visible to the connected Cloudflare account through D1 audit records. ChatGPT can submit task issues through the connected GitHub integration and inspect the resulting D1 audit events; this is an outbound polling bridge, not a raw SSH session.
+The agent first uses the current `/v1/device/*` API and automatically falls back to the deployed legacy `/bridge/*` API when the current route returns 404. This keeps registration and event reporting working while the Cloudflare Worker deployment is brought into sync. The agent reports status to the authenticated Worker endpoint. Results are visible to the connected Cloudflare account through D1 audit records. ChatGPT can submit task issues through the connected GitHub integration and inspect the resulting D1 audit events; this is an outbound polling bridge, not a raw SSH session.
 
 ## Security
 
