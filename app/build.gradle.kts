@@ -9,7 +9,7 @@ android {
     compileSdk = 36
 
     defaultConfig {
-        applicationId = "com.manekdm13.jarvis"
+        applicationId = "com.manekdm13.jarvis.preview"
         minSdk = 26
         targetSdk = 36
         val versionParts = providers.gradleProperty("jarvisVersionName")
