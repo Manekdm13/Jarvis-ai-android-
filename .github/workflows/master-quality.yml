@@ -11,7 +11,7 @@ permissions:
 
 concurrency:
   group: jarvis-master-quality-${{ github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: false
 
 jobs:
   worker-checks:
