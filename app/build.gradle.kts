@@ -65,6 +65,7 @@ dependencies {
     implementation("androidx.compose.material3:material3")
     implementation("androidx.lifecycle:lifecycle-runtime-ktx:2.9.4")
     implementation("androidx.work:work-runtime-ktx:2.10.1")
+    implementation("com.google.mlkit:text-recognition:16.0.1")
     // Audio-only peer-to-peer VoIP media engine; signalling remains in Supabase.
     implementation("io.github.webrtc-sdk:android:150.7871.09")
     testImplementation("junit:junit:4.13.2")
