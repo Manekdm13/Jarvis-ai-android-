@@ -114,6 +114,15 @@ def run_task(action: str):
         if not worker_dir.is_dir():
             return {"ok": False, "error": "worker/ directory not found"}
         results = []
+        # This repository intentionally has no lockfile yet; install the declared
+        # Worker dependencies before testing so a fresh Termux checkout is usable.
+        install = subprocess.run(["npm", "install", "--no-audit", "--no-fund"],
+                                 cwd=worker_dir, text=True, stdout=subprocess.PIPE,
+                                 stderr=subprocess.STDOUT, timeout=900, check=False)
+        results.append({"command": "npm install --no-audit --no-fund",
+                        "exit_code": install.returncode, "output": redact(install.stdout)})
+        if install.returncode:
+            return {"ok": False, "steps": results}
         for command in (["npm", "test"], ["npm", "run", "typecheck"]):
             p = subprocess.run(command, cwd=worker_dir, text=True, stdout=subprocess.PIPE,
                                stderr=subprocess.STDOUT, timeout=900, check=False)
