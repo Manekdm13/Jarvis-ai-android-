@@ -235,6 +235,14 @@ internal class JarvisTaskWorker(
                     val stepResult = AiGatewayClient.reply(baseUrl = gatewayUrl, token = token,
                         message = JarvisTaskOrchestrator.stepPrompt(goal, step, completed), history = executionContext)
                     completed += step.title to stepResult.take(4_000)
+                    journal.checkpoint(JarvisTaskJournal.Entry(
+                        id = taskId,
+                        goal = goal,
+                        status = "Completed step ${index + 1}/${plan.steps.size}: ${step.title}",
+                        progress = progress,
+                        result = completed.joinToString("\\n\\n") { (title, output) -> title + "\\n" + output }.take(12_000),
+                        attempt = runAttemptCount
+                    ))
                 }
                 setProgress(Data.Builder().putString(KEY_TASK_ID, taskId)
                     .putString(KEY_STATUS, "Checking the work and repairing gaps").putInt(KEY_PROGRESS, 95).build())
