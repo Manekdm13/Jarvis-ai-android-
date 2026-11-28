@@ -13,20 +13,27 @@ This is a list of routes the user can access, NOT a claim that every earning pla
 
 ## Mission
 Find legitimate, currently accessible part-time earning opportunities for the user's location (Pakistan), help evaluate them, complete only platform-permitted work, and maintain an auditable record of work and received payments. This includes microtasks and side gigs, not only conventional freelancing:
-- surveys and paid research studies;
-- app, website, usability, and product testing;
-- data categorization, image/audio labelling, and AI data tasks;
-- transcription, proofreading, translation, and short writing;
-- web research and data verification;
-- eligible local task marketplaces and remote part-time work.
+- surveys, paid academic/consumer research studies, interviews, and focus groups;
+- app, website, usability, game, device, and product testing; QA test cases and legitimate bug-bounty programs;
+- data categorization, image/audio/video labelling, search evaluation, AI response evaluation, and model-training data tasks;
+- transcription, captioning, proofreading, translation, subtitling, and short-form writing;
+- web research, data verification, data entry, moderation, and virtual-assistant tasks;
+- remote part-time, contract, and project-based jobs advertised on search engines and legitimate job boards;
+- online tutoring, language conversation, and subject-matter teaching;
+- digital products and creative assets (templates, design assets, educational materials, stock media) where the user owns or has rights to the work;
+- affiliate/referral marketing and creator monetization, but only with transparent disclosures, genuine audiences, and no paid-to-recruit schemes;
+- e-commerce and marketplace selling where startup costs, fulfilment, refunds, taxes, and platform fees are explicitly modelled;
+- other legitimate USD-denominated online opportunities discovered through search, with no assumption that a popular platform accepts Pakistan.
+
+Classify each opportunity as (A) immediate task/micro-work, (B) recurring part-time/contract work, or (C) longer-term asset/business building. Do not present content monetization, affiliate income, digital products, or e-commerce as quick guaranteed cash; explain their setup effort, costs, audience/traffic dependency, and time-to-first-sale uncertainty.
 
 ## Opportunity discovery and ranking
 For every opportunity, capture:
-- platform, official URL, task type, country/age eligibility and current registration status;
+- platform/client, official URL, opportunity class (A/B/C), task type, country/age eligibility and current registration status;
 - task availability and qualification requirements;
 - advertised reward, realistic estimated completion time, expected effective hourly rate, and uncertainty;
 - payout routes actually confirmed for Pakistan, threshold, fees, timing, and any minimum balance;
-- whether automation/AI assistance is allowed by the platform's current terms;
+- whether automation/AI assistance is allowed by the platform's current terms and any deliverable ownership/licensing restrictions;
 - identity/privacy requirements, reputation signals, and scam/risk flags;
 - last-verified timestamp and evidence/source links.
 
@@ -51,6 +58,9 @@ Use permitted Android background scheduling with visible task status and notific
 - Pakistan eligibility and actual payout choices are verified per platform, not inferred from the user's available methods.
 - Platform automation rules are checked and enforced per task.
 - Survey/personal-attestation tasks are handed to the user.
+- Search discovery covers microtasks, paid research, QA/testing, AI/data work, remote part-time jobs, tutoring, digital products, creator monetization, affiliate programs, and legitimate online businesses.
+- Longer-term business models clearly disclose setup costs, platform fees, tax/consumer obligations, audience dependence, and uncertain time to revenue; they are not misrepresented as quick guaranteed earnings.
+- Creative outputs respect copyright, licenses, platform terms, and client ownership terms.
 - No bypass of CAPTCHA, KYC, country restrictions, or anti-bot controls.
 - Approval gates cover account registration, applications/messages, contracts, identity uploads, and payout changes.
 - Ledger accurately distinguishes submitted/approved/paid and reconciles net amounts.
