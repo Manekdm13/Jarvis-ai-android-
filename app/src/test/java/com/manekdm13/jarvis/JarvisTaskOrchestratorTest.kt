@@ -33,4 +33,18 @@ class JarvisTaskOrchestratorTest {
         assertTrue(prompt.contains("not independently verified"))
         assertTrue(prompt.contains("verify important claims"))
     }
+    @Test
+    fun reviewPromptRequiresIndependentCheckingAndSafeRecovery() {
+        val prompt = JarvisTaskOrchestrator.reviewPrompt(
+            goal = "Prepare a comparison and recommendation",
+            completed = listOf("Compare options" to "Option A costs $20.")
+        )
+        assertTrue(prompt.contains("Independently check"))
+        assertTrue(prompt.contains("repair it now"))
+        assertTrue(prompt.contains("smallest"))
+        assertTrue(prompt.contains("Do not claim external actions"))
+        assertTrue(prompt.contains("Option A costs $20."))
+        assertTrue(prompt.contains("Do not reveal chain-of-thought"))
+    }
+
 }
