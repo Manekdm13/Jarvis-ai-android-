@@ -4,6 +4,8 @@ import android.content.Context
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.onAllNodesWithText
+import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performClick
 import androidx.test.platform.app.InstrumentationRegistry
 import org.junit.Assert.assertEquals
@@ -21,6 +23,7 @@ class JarvisLaunchTest {
     fun launchShowsAssistantAndApprovalPolicy() {
         composeRule.onNodeWithText("J.A.R.V.I.S").assertIsDisplayed()
         composeRule.onNodeWithText("One assistant for conversation, files, research and phone actions.").assertIsDisplayed()
+        composeRule.onNodeWithText("Chat").performScrollTo().performClick()
         composeRule.onNodeWithText("Message your assistant…").assertIsDisplayed()
         composeRule.onNodeWithText("Send  ➤").assertIsDisplayed()
     }
@@ -28,13 +31,15 @@ class JarvisLaunchTest {
 
     @Test
     fun sectionHubOpensARealSpecialistWorkspace() {
-        composeRule.onNodeWithText("21 Sections").performClick()
+        composeRule.onNodeWithText("21 Sections").performScrollTo().performClick()
+        composeRule.waitForIdle()
         composeRule.onNodeWithText("JARVIS 3.0 • 21 SYSTEM SECTIONS").assertIsDisplayed()
-        composeRule.onNodeWithText("Open").performClick()
+        composeRule.onAllNodesWithText("Open")[0].performClick()
         composeRule.onNodeWithText("Command Centre").assertIsDisplayed()
         composeRule.onNodeWithText("QUICK ACTIONS").assertIsDisplayed()
         composeRule.onNodeWithText("Show my system status").assertIsDisplayed()
         composeRule.onNodeWithText("← All 21 sections").performClick()
+        composeRule.waitForIdle()
         composeRule.onNodeWithText("JARVIS 3.0 • 21 SYSTEM SECTIONS").assertIsDisplayed()
     }
 
