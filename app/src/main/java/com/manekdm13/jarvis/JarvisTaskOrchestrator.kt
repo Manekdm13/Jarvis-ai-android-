@@ -29,9 +29,9 @@ internal object JarvisTaskOrchestrator {
         return runCatching {
             val json = JSONObject(raw.substring(start, end + 1))
             val source = json.optJSONArray("steps") ?: return null
-            if (source.length() == 0) return null
+            if (source.length() == 0 || source.length() > MAX_STEPS) return null
             val steps = mutableListOf<JarvisPlanStep>()
-            for (index in 0 until minOf(source.length(), MAX_STEPS)) {
+            for (index in 0 until source.length()) {
                 val item = source.optJSONObject(index) ?: return null
                 val title = item.optString("title").trim()
                 val instruction = item.optString("instruction").trim()
