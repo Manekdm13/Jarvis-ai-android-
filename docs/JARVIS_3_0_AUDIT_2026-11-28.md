@@ -29,7 +29,7 @@
 - The gateway health check verifies reachability and token fingerprint, but a successful health check is not equivalent to a successful authenticated chat completion.
 - The app still has a shared AI conversation path for specialist sections; a specialist prompt does not substitute for a domain-specific data provider or tool integration. Background WorkManager tasks are limited to AI research synthesis, reasoning and drafting.
 - Existing encrypted preference storage is not yet a Room-backed relational data layer.
-- Full tool-executing autonomy, offline inference, continuous background phone control, finance data, Health Connect, calendar provider integration, and production communication sending require separate implementation and tests. Browser page extraction is read-only when Cloudflare Browser Run is configured; TinyFish fallback is a separate automation provider and requires careful user task review.
+- Full tool-executing autonomy, offline inference, continuous background phone control, finance data, Health Connect, calendar provider integration, and production communication sending require separate implementation and tests. Browser page extraction is read-only through Cloudflare Browser Run. The TinyFish fallback is restricted to read-only research goals; consequential website-action goals are rejected until an action-specific approval broker exists.
 - A signed release APK is not yet verified; Gradle signing requires a private keystore and signing secrets. Physical Redmi Note 13 4G / HyperOS behavior remains unverified until the owner tests the exact signed APK on-device.
 
 ## Required next engineering work
