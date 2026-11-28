@@ -153,6 +153,13 @@ class JarvisLaunchTest {
         val firstEngine = JarvisTaskEngine(testContext)
         val created = firstEngine.create("Regression: plan a research task", "Persist this note")
         assertEquals(JarvisTaskStatus.PLANNED, created.status)
+        val encryptedLedger = assertNotNullAndGet(
+            testContext.getSharedPreferences("jarvis_task_ledger", Context.MODE_PRIVATE)
+                .getString("tasks_ciphertext_v2", null)
+        )
+        assertFalse("Task titles must not be stored as plaintext", encryptedLedger.contains("Regression: plan a research task"))
+        assertFalse("Legacy plaintext ledger key must be removed after save",
+            testContext.getSharedPreferences("jarvis_task_ledger", Context.MODE_PRIVATE).contains("tasks_v1"))
 
         val restoredEngine = JarvisTaskEngine(testContext)
         val restored = restoredEngine.load().single()
@@ -172,6 +179,33 @@ class JarvisLaunchTest {
 
         restoredEngine.delete(created.id)
         assertTrue(JarvisTaskEngine(testContext).load().isEmpty())
+    }
+
+    @Test
+    fun legacyPlaintextTaskLedgerMigratesToKeystoreCiphertext() {
+        val testContext = InstrumentationRegistry.getInstrumentation().targetContext
+        val preferences = testContext.getSharedPreferences("jarvis_task_ledger", Context.MODE_PRIVATE)
+        preferences.edit().clear().putString(
+            "tasks_v1",
+            """[{"id":"legacy-task","title":"Private legacy task","status":"PLANNED","createdAt":1,"updatedAt":1,"notes":"legacy note","planId":""}]"""
+        ).commit()
+
+        val migrated = JarvisTaskEngine(testContext).load().single()
+        assertEquals("legacy-task", migrated.id)
+        assertEquals("Private legacy task", migrated.title)
+        val ciphertext = assertNotNullAndGet(preferences.getString("tasks_ciphertext_v2", null))
+        assertFalse(ciphertext.contains("Private legacy task"))
+        assertFalse(preferences.contains("tasks_v1"))
+        assertEquals("Private legacy task", JarvisTaskEngine(testContext).load().single().title)
+    }
+
+    @Test
+    fun consequentialBackgroundTasksRequireAnApprovalCheckpoint() {
+        assertTrue(JarvisTaskApprovalPolicy.requiresApproval("Send an email to the scholarship office"))
+        assertTrue(JarvisTaskApprovalPolicy.requiresApproval("Delete duplicate files"))
+        assertTrue(JarvisTaskApprovalPolicy.requiresApproval("Publish this social post"))
+        assertFalse(JarvisTaskApprovalPolicy.requiresApproval("Research food safety regulations"))
+        assertFalse(JarvisTaskApprovalPolicy.requiresApproval("Prepare a study plan"))
     }
 
     @Test
