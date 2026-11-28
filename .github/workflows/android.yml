@@ -25,6 +25,8 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 22
+      - name: Validate Termux agent Python syntax
+        run: python3 -m py_compile scripts/jarvis_termux_agent.py
       - name: Install Worker dependencies
         working-directory: worker
         run: npm install --no-package-lock
