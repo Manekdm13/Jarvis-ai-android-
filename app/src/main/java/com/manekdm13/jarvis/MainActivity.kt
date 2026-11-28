@@ -129,6 +129,7 @@ private fun JarvisApp(onSpeak: (String) -> Unit) {
     var memoryEntries by remember(memory) { mutableStateOf(memory.load()) }
     val scope = rememberCoroutineScope()
     var pendingAction by remember { mutableStateOf<PendingPhoneAction?>(null) }
+    var pendingTapTarget by remember { mutableStateOf<String?>(null) }
     var messages by remember(memory) {
         val restored = memory.load()
         mutableStateOf(restored.ifEmpty {
@@ -162,6 +163,38 @@ private fun JarvisApp(onSpeak: (String) -> Unit) {
         val question = input.trim()
         if (question.isEmpty()) return
         input = ""
+        val normalizedCommand = question.lowercase(Locale.ROOT)
+        when {
+            normalizedCommand in setOf("read screen", "what is on my screen", "what's on my screen", "inspect screen") -> {
+                record(question, JarvisAccessibilityService.readScreen())
+                return
+            }
+            normalizedCommand in setOf("check notifications", "read notifications", "show notifications", "summarize notifications") -> {
+                record(question, JarvisNotificationListener.digest())
+                return
+            }
+            normalizedCommand == "scroll down" -> {
+                record(question, if (JarvisAccessibilityService.scroll(true)) "Scrolled the current screen down." else "I couldn't scroll. Enable JARVIS Accessibility and open a scrollable screen.")
+                return
+            }
+            normalizedCommand == "scroll up" -> {
+                record(question, if (JarvisAccessibilityService.scroll(false)) "Scrolled the current screen up." else "I couldn't scroll. Enable JARVIS Accessibility and open a scrollable screen.")
+                return
+            }
+            normalizedCommand in setOf("go back", "press back") -> {
+                record(question, if (JarvisAccessibilityService.globalBack()) "Went back." else "Accessibility access is not enabled.")
+                return
+            }
+            normalizedCommand in setOf("go home", "press home") -> {
+                record(question, if (JarvisAccessibilityService.globalHome()) "Returned to the home screen." else "Accessibility access is not enabled.")
+                return
+            }
+            normalizedCommand.startsWith("tap ") -> {
+                pendingTapTarget = question.substringAfter("tap ", "").trim().takeIf { it.isNotBlank() }
+                record(question, "Review the requested screen tap in the approval prompt. JARVIS will only tap the matching visible control if you approve.")
+                return
+            }
+        }
         val prepared = resolvePhoneAction(context, question)
         when {
             prepared?.first != null -> {
@@ -381,6 +414,29 @@ private fun JarvisApp(onSpeak: (String) -> Unit) {
                                     style = MaterialTheme.typography.bodySmall
                                 )
                             }
+
+                            androidx.compose.material3.HorizontalDivider(color = Color(0xFF29435C))
+                            Text("DEVICE ACCESS", color = Color(0xFF70DCEB), style = MaterialTheme.typography.labelMedium)
+                            Text(
+                                "These are real Android services, not simulated toggles. Enable each service in the system screen. Screen text and notification contents are read only when you explicitly ask JARVIS to inspect them.",
+                                color = Color(0xFF9DB5CD),
+                                style = MaterialTheme.typography.bodySmall
+                            )
+                            OutlinedButton(
+                                onClick = { runCatching { context.startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS)) } },
+                                modifier = Modifier.fillMaxWidth(),
+                                shape = RoundedCornerShape(12.dp)
+                            ) { Text(if (JarvisAccessibilityService.isRunning()) "Accessibility service connected ✓" else "Enable screen control & reading") }
+                            OutlinedButton(
+                                onClick = { runCatching { context.startActivity(Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS)) } },
+                                modifier = Modifier.fillMaxWidth(),
+                                shape = RoundedCornerShape(12.dp)
+                            ) { Text("Enable notification access") }
+                            Text(
+                                "After enabling, return to JARVIS and try: “read screen”, “check notifications”, “scroll down”, “go back”, or “tap Search”. Taps always require a separate approval.",
+                                color = Color(0xFF8EAAC6),
+                                style = MaterialTheme.typography.bodySmall
+                            )
                         }
                     }
 
@@ -636,6 +692,26 @@ private fun JarvisApp(onSpeak: (String) -> Unit) {
                     enabled = !isRunningWebAgent,
                     onClick = { showWebAgentDialog = false }
                 ) { Text("Cancel") }
+            }
+        )
+    }
+
+    pendingTapTarget?.let { target ->
+        AlertDialog(
+            onDismissRequest = { pendingTapTarget = null },
+            title = { Text("Approve screen interaction") },
+            text = {
+                Text("JARVIS will look for a visible control containing “$target” and tap it. Review the current screen first. Do not approve if this could send a message, publish content, delete data, make a purchase, or change security settings.")
+            },
+            confirmButton = {
+                Button(onClick = {
+                    pendingTapTarget = null
+                    val success = JarvisAccessibilityService.tapText(target)
+                    record("tap $target", if (success) "Tapped the matching visible control." else "I couldn't find a matching clickable control. Check that Accessibility is enabled and the target is visible.")
+                }) { Text("Approve this tap") }
+            },
+            dismissButton = {
+                OutlinedButton(onClick = { pendingTapTarget = null; record("tap $target", "Denied. No screen interaction was performed.") }) { Text("Deny") }
             }
         )
     }
