@@ -48,6 +48,17 @@ internal object JarvisActionPolicy {
         val command = rawCommand.trim().lowercase()
         if (command.isBlank()) return JarvisActionRisk.UNKNOWN
 
+        // Do not send likely secrets or sensitive personal material to a search provider
+        // automatically just because the user phrased the request as a web search.
+        val sensitiveTerms = listOf(
+            "password", "passcode", "api key", "access token", "secret key", "recovery code",
+            "bank account", "credit card", "debit card", "passport", "identity number",
+            "medical record", "health record", "private message", "confidential", "my documents"
+        )
+        if (sensitiveTerms.any { command.contains(it) }) {
+            return JarvisActionRisk.PRIVATE_DATA_ACCESS
+        }
+
         if (command in setOf("read screen", "summarize screen", "what's on my screen", "what is on my screen")) {
             return JarvisActionRisk.PRIVATE_DATA_ACCESS
         }
