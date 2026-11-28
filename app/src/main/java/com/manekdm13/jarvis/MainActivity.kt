@@ -722,7 +722,6 @@ private fun JarvisApp(onSpeak: (String) -> Unit) {
                                             if (entry.result.isNotBlank()) Text(entry.result.take(500), color = Color(0xFF9DB5CD), style = MaterialTheme.typography.bodySmall)
                                             if (entry.error.isNotBlank()) Text(entry.error, color = Color(0xFFFFA0A0), style = MaterialTheme.typography.bodySmall)
                                         }
-                                        HorizontalDivider(color = Color(0xFF263B52))
                                     }
                                 }
                             }
