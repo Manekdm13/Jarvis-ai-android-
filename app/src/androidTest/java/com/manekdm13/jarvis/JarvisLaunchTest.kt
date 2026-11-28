@@ -30,6 +30,11 @@ class JarvisLaunchTest {
 
 
     @Test
+    fun gatewayStatusDoesNotClaimOnlineBeforeAHealthCheck() {
+        composeRule.onNodeWithText("● NOT VERIFIED").assertIsDisplayed()
+    }
+
+    @Test
     fun settingsIsReachableFromHeaderOnNarrowScreens() {
         composeRule.onNodeWithText("⚙ Settings").assertIsDisplayed().performClick()
         composeRule.waitForIdle()
