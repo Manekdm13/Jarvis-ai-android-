@@ -638,7 +638,7 @@ private fun JarvisApp(
                                             TextButton(onClick = { pendingTaskApproval = task }) { Text("Review approval") }
                                         } else if (task.status == JarvisTaskStatus.PLANNED || task.status == JarvisTaskStatus.FAILED) {
                                             TextButton(onClick = {
-                                                if (JarvisTaskApprovalPolicy.requiresApproval(task.title)) {
+                                                if (JarvisTaskApprovalPolicy.requiresApproval(task.title + " " + task.notes)) {
                                                     val waiting = taskEngine.updateStatus(task.id, JarvisTaskStatus.WAITING_FOR_APPROVAL)
                                                     pendingTaskApproval = waiting
                                                 } else {
