@@ -237,6 +237,7 @@ private fun JarvisApp(
     var planGoal by remember { mutableStateOf("") }
     var isPlanning by remember { mutableStateOf(false) }
     var planStatus by remember { mutableStateOf("") }
+    var pendingTaskApproval by remember { mutableStateOf<JarvisTask?>(null) }
     var showRemember by remember { mutableStateOf(false) }
     var rememberSearch by remember { mutableStateOf("") }
     var memoryEntries by remember(memory) { mutableStateOf(memory.load()) }
@@ -554,8 +555,11 @@ private fun JarvisApp(
                     }
                 }
                 if (selectedTab == "agent") {
-                    Text("AUTONOMOUS WORKSPACE", color = Color(0xFF78DDE8), style = MaterialTheme.typography.titleMedium)
-                    Text("Durable task tracking is active. Tasks survive app restarts; execution and external actions still require connected tools and your approval where appropriate.", color = Color(0xFF9DB0C7), style = MaterialTheme.typography.bodySmall)
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
+                        Text("AUTONOMOUS WORKSPACE", color = Color(0xFF78DDE8), style = MaterialTheme.typography.titleMedium)
+                        TextButton(onClick = { agentTasks = taskEngine.load() }) { Text("Refresh") }
+                    }
+                    Text("Background tasks are persisted by WorkManager and the encrypted task ledger. JARVIS can research, reason and draft while the app is closed. Sending, publishing, deleting, purchasing and phone actions are not performed by this worker.", color = Color(0xFF9DB0C7), style = MaterialTheme.typography.bodySmall)
                     Card(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(18.dp), colors = androidx.compose.material3.CardDefaults.cardColors(containerColor = Color(0xFF111F32))) {
                         Column(Modifier.fillMaxWidth().padding(14.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                             OutlinedTextField(value = newTaskTitle, onValueChange = { newTaskTitle = it }, modifier = Modifier.fillMaxWidth(), label = { Text("Add a task for JARVIS to track") }, placeholder = { Text("e.g. Prepare my scholarship shortlist") }, minLines = 2, maxLines = 3)
@@ -626,10 +630,31 @@ private fun JarvisApp(
                                 Column(Modifier.fillMaxWidth().padding(13.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                                     Text(task.title, color = Color(0xFFEAF4FF), style = MaterialTheme.typography.titleSmall)
                                     Text(task.status.name.replace('_', ' '), color = if (task.status == JarvisTaskStatus.COMPLETED) Color(0xFF78E0C2) else Color(0xFFFFD28B), style = MaterialTheme.typography.labelSmall)
+                                    if (task.status == JarvisTaskStatus.COMPLETED && task.notes.isNotBlank()) {
+                                        Text(task.notes.take(700), color = Color(0xFFB5C7D9), style = MaterialTheme.typography.bodySmall)
+                                    }
                                     Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                                        if (task.status != JarvisTaskStatus.IN_PROGRESS && task.status != JarvisTaskStatus.COMPLETED) TextButton(onClick = { taskEngine.updateStatus(task.id, JarvisTaskStatus.IN_PROGRESS); agentTasks = taskEngine.load() }) { Text("Start") }
-                                        if (task.status != JarvisTaskStatus.WAITING_FOR_APPROVAL && task.status != JarvisTaskStatus.COMPLETED) TextButton(onClick = { taskEngine.updateStatus(task.id, JarvisTaskStatus.WAITING_FOR_APPROVAL); agentTasks = taskEngine.load() }) { Text("Needs approval") }
-                                        if (task.status != JarvisTaskStatus.COMPLETED) TextButton(onClick = { taskEngine.updateStatus(task.id, JarvisTaskStatus.COMPLETED); agentTasks = taskEngine.load() }) { Text("Complete") }
+                                        if (task.status == JarvisTaskStatus.WAITING_FOR_APPROVAL) {
+                                            TextButton(onClick = { pendingTaskApproval = task }) { Text("Review approval") }
+                                        } else if (task.status == JarvisTaskStatus.PLANNED || task.status == JarvisTaskStatus.FAILED) {
+                                            TextButton(onClick = {
+                                                if (JarvisTaskApprovalPolicy.requiresApproval(task.title)) {
+                                                    val waiting = taskEngine.updateStatus(task.id, JarvisTaskStatus.WAITING_FOR_APPROVAL)
+                                                    pendingTaskApproval = waiting
+                                                } else {
+                                                    taskEngine.updateStatus(task.id, JarvisTaskStatus.IN_PROGRESS)
+                                                    JarvisTaskScheduler.enqueue(context, task.id)
+                                                }
+                                                agentTasks = taskEngine.load()
+                                            }) { Text("Run in background") }
+                                        }
+                                        if (task.status == JarvisTaskStatus.IN_PROGRESS) {
+                                            TextButton(onClick = {
+                                                JarvisTaskScheduler.cancel(context, task.id)
+                                                taskEngine.updateStatus(task.id, JarvisTaskStatus.CANCELLED, "Cancelled by the user.")
+                                                agentTasks = taskEngine.load()
+                                            }) { Text("Cancel") }
+                                        }
                                         TextButton(onClick = { taskEngine.delete(task.id); agentTasks = taskEngine.load() }) { Text("Delete") }
                                     }
                                 }
@@ -1126,6 +1151,34 @@ private fun JarvisApp(
             },
             dismissButton = {
                 OutlinedButton(onClick = { pendingTapTarget = null; record("tap $target", "Denied. No screen interaction was performed.") }) { Text("Deny") }
+            }
+        )
+    }
+
+    pendingTaskApproval?.let { task ->
+        AlertDialog(
+            onDismissRequest = { pendingTaskApproval = null },
+            title = { Text("JARVIS approval checkpoint") },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Text("Task: ${task.title}")
+                    Text("This task looks consequential. Approving allows JARVIS to prepare research, a plan or a draft in the background only. It does not authorize sending, publishing, deleting, purchasing, calling, changing settings or modifying external data. Those actions need a separate connected tool and a fresh action-specific approval.")
+                }
+            },
+            confirmButton = {
+                Button(onClick = {
+                    pendingTaskApproval = null
+                    taskEngine.updateStatus(task.id, JarvisTaskStatus.IN_PROGRESS, "User approved background preparation only.")
+                    JarvisTaskScheduler.enqueue(context, task.id)
+                    agentTasks = taskEngine.load()
+                }) { Text("Approve preparation once") }
+            },
+            dismissButton = {
+                OutlinedButton(onClick = {
+                    pendingTaskApproval = null
+                    taskEngine.updateStatus(task.id, JarvisTaskStatus.PLANNED, "User declined the approval checkpoint.")
+                    agentTasks = taskEngine.load()
+                }) { Text("Deny") }
             }
         )
     }
