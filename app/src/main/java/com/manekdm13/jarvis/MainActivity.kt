@@ -233,6 +233,15 @@ private fun JarvisApp(
     var activeSectionId by remember { mutableStateOf<String?>(null) }
     val taskEngine = remember(context) { JarvisTaskEngine(context.applicationContext) }
     var agentTasks by remember(taskEngine) { mutableStateOf(taskEngine.load()) }
+    LaunchedEffect(selectedTab) {
+        if (selectedTab == "agent") {
+            // Re-enqueue any ledger task left IN_PROGRESS if the process died
+            // between persisting its state and WorkManager accepting the request.
+            val interrupted = taskEngine.load().filter { it.status == JarvisTaskStatus.IN_PROGRESS }
+            interrupted.forEach { JarvisTaskScheduler.enqueue(context, it.id) }
+            agentTasks = taskEngine.load()
+        }
+    }
     var newTaskTitle by remember { mutableStateOf("") }
     var planGoal by remember { mutableStateOf("") }
     var isPlanning by remember { mutableStateOf(false) }
