@@ -17,7 +17,7 @@ internal object JarvisTaskIntent {
     private val explicitPrefixes = listOf(
         "do this:", "do this ", "handle this:", "handle this ",
         "task:", "objective:", "take care of ", "please handle ",
-        "i want you to ", "your task is to "
+        "i want you to ", "i need you to ", "please handle ", "your task is to ", "get this done:", "take care of "
     )
 
     fun isAutonomousTaskRequest(raw: String): Boolean {
