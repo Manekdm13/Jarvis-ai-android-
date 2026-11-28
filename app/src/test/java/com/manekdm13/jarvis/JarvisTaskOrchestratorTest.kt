@@ -47,4 +47,12 @@ class JarvisTaskOrchestratorTest {
         assertTrue(prompt.contains("Do not reveal chain-of-thought"))
     }
 
+    @Test
+    fun reviewCanRequestExactlyOneBoundedRepair() {
+        val incomplete = "[JARVIS_REVIEW: NEEDS_REPAIR] Missing verified deadlines."
+        assertTrue(JarvisTaskOrchestrator.needsRepair(incomplete))
+        assertTrue(JarvisTaskOrchestrator.repairPrompt("Find scholarships", incomplete).contains("Missing verified deadlines."))
+        assertTrue(JarvisTaskOrchestrator.needsRepair("[JARVIS_REVIEW: NEEDS_REPAIR]"))
+        org.junit.Assert.assertFalse(JarvisTaskOrchestrator.needsRepair("[JARVIS_REVIEW: COMPLETE] All requirements met."))
+    }
 }
