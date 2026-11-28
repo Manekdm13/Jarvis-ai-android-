@@ -32,6 +32,11 @@ internal class JarvisTaskWorker(
         val goal = inputData.getString(KEY_GOAL)?.trim().orEmpty()
         val webUrl = inputData.getString(KEY_WEB_URL)?.trim().orEmpty()
         if (goal.isBlank()) return@withContext Result.failure()
+        val journal = JarvisTaskJournal(applicationContext)
+        journal.checkpoint(JarvisTaskJournal.Entry(
+            id = taskId, goal = goal, status = "Queued", progress = 0,
+            attempt = runAttemptCount
+        ))
 
         setProgress(Data.Builder()
             .putString(KEY_TASK_ID, taskId)
@@ -101,6 +106,10 @@ internal class JarvisTaskWorker(
                     AiGatewayClient.reply(baseUrl = gatewayUrl, token = token,
                         message = JarvisTaskOrchestrator.repairPrompt(goal, browserReview), history = browserContext).take(9_000)
                 } else browserReview.removePrefix("[JARVIS_REVIEW: COMPLETE]").trim().take(9_000)
+                journal.checkpoint(JarvisTaskJournal.Entry(
+                    id = taskId, goal = goal, status = "Browser task finished — review required",
+                    progress = 100, result = finalBrowserResult, attempt = runAttemptCount
+                ))
                 return@withContext Result.success(Data.Builder()
                     .putString(KEY_TASK_ID, taskId)
                     .putString(KEY_STATUS, "Browser task finished — review required")
@@ -157,6 +166,10 @@ internal class JarvisTaskWorker(
             }
             if (routedBrain.isSuccess) {
                 val routed = routedBrain.getOrThrow()
+                journal.checkpoint(JarvisTaskJournal.Entry(
+                    id = taskId, goal = goal, status = "Completed using " + routed.provider,
+                    progress = 100, result = routed.text.take(10_000), attempt = runAttemptCount
+                ))
                 return@withContext Result.success(Data.Builder()
                     .putString(KEY_TASK_ID, taskId)
                     .putString(KEY_STATUS, "JARVIS task completed using " + routed.provider)
@@ -233,6 +246,10 @@ internal class JarvisTaskWorker(
                 } else review.removePrefix("[JARVIS_REVIEW: COMPLETE]").trim().take(9_000)
             }
 
+            journal.checkpoint(JarvisTaskJournal.Entry(
+                id = taskId, goal = goal, status = "Completed",
+                progress = 100, result = answer, attempt = runAttemptCount
+            ))
             Result.success(Data.Builder()
                 .putString(KEY_TASK_ID, taskId)
                 .putString(KEY_STATUS, "Completed")
@@ -240,12 +257,18 @@ internal class JarvisTaskWorker(
                 .putInt(KEY_PROGRESS, 100)
                 .build())
         } catch (error: Exception) {
+            val message = error.message ?: "JARVIS could not complete this task."
+            journal.checkpoint(JarvisTaskJournal.Entry(
+                id = taskId, goal = goal,
+                status = if (runAttemptCount < 2) "Retrying after error" else "Failed",
+                progress = 0, error = message, attempt = runAttemptCount
+            ))
             if (runAttemptCount < 2) {
                 Result.retry()
             } else {
                 Result.failure(Data.Builder()
                     .putString(KEY_TASK_ID, taskId)
-                    .putString(KEY_ERROR, error.message ?: "JARVIS could not complete this task.")
+                    .putString(KEY_ERROR, message)
                     .build())
             }
         }
