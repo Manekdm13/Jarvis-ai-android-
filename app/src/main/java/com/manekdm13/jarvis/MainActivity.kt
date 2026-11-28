@@ -1,6 +1,8 @@
 package com.manekdm13.jarvis
 
+import android.Manifest
 import android.content.Context
+import android.content.pm.PackageManager
 import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
@@ -130,6 +132,8 @@ private fun JarvisApp(onSpeak: (String) -> Unit) {
     val scope = rememberCoroutineScope()
     var pendingAction by remember { mutableStateOf<PendingPhoneAction?>(null) }
     var pendingTapTarget by remember { mutableStateOf<String?>(null) }
+    var galleryAccessGranted by remember { mutableStateOf(false) }
+    var libraryStatus by remember { mutableStateOf("") }
     var messages by remember(memory) {
         val restored = memory.load()
         mutableStateOf(restored.ifEmpty {
@@ -159,12 +163,71 @@ private fun JarvisApp(onSpeak: (String) -> Unit) {
         if (!spoken.isNullOrBlank()) input = spoken
     }
 
+    val galleryPermissionLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestMultiplePermissions()
+    ) { grants ->
+        galleryAccessGranted = grants.values.any { it }
+        libraryStatus = if (galleryAccessGranted) "Gallery permission granted. Ask JARVIS to scan gallery." else "Gallery permission was not granted."
+    }
+
+    val folderPicker = rememberLauncherForActivityResult(
+        ActivityResultContracts.OpenDocumentTree()
+    ) { uri ->
+        if (uri != null) {
+            runCatching { JarvisPersonalLibrary.saveFolder(context, uri) }
+                .onSuccess { libraryStatus = "Folder shared with JARVIS. You can now ask it to scan files." }
+                .onFailure { libraryStatus = "Couldn't save folder access: ${it.message ?: "unknown error"}" }
+        }
+    }
+
+    fun requestGalleryAccess() {
+        val permissions = when {
+            Build.VERSION.SDK_INT >= 34 -> arrayOf(
+                Manifest.permission.READ_MEDIA_IMAGES,
+                Manifest.permission.READ_MEDIA_VIDEO,
+                Manifest.permission.READ_MEDIA_VISUAL_USER_SELECTED
+            )
+            Build.VERSION.SDK_INT >= 33 -> arrayOf(
+                Manifest.permission.READ_MEDIA_IMAGES,
+                Manifest.permission.READ_MEDIA_VIDEO
+            )
+            else -> arrayOf(Manifest.permission.READ_EXTERNAL_STORAGE)
+        }
+        galleryPermissionLauncher.launch(permissions)
+    }
+
     fun sendMessage() {
         val question = input.trim()
         if (question.isEmpty()) return
         input = ""
         val normalizedCommand = question.lowercase(Locale.ROOT)
         when {
+            normalizedCommand in setOf("scan gallery", "search gallery", "index gallery") -> {
+                val granted = if (Build.VERSION.SDK_INT >= 34) {
+                    context.checkSelfPermission(Manifest.permission.READ_MEDIA_IMAGES) == PackageManager.PERMISSION_GRANTED ||
+                        context.checkSelfPermission(Manifest.permission.READ_MEDIA_VIDEO) == PackageManager.PERMISSION_GRANTED ||
+                        context.checkSelfPermission(Manifest.permission.READ_MEDIA_VISUAL_USER_SELECTED) == PackageManager.PERMISSION_GRANTED
+                } else if (Build.VERSION.SDK_INT >= 33) {
+                    context.checkSelfPermission(Manifest.permission.READ_MEDIA_IMAGES) == PackageManager.PERMISSION_GRANTED ||
+                        context.checkSelfPermission(Manifest.permission.READ_MEDIA_VIDEO) == PackageManager.PERMISSION_GRANTED
+                } else {
+                    context.checkSelfPermission(Manifest.permission.READ_EXTERNAL_STORAGE) == PackageManager.PERMISSION_GRANTED
+                }
+                if (granted) record(question, JarvisPersonalLibrary.scanGallery(context))
+                else {
+                    requestGalleryAccess()
+                    record(question, "Android needs your permission to index gallery images and videos. Review the permission prompt; you can grant selected media only.")
+                }
+                return
+            }
+            normalizedCommand in setOf("scan files", "index files", "search files") -> {
+                record(question, JarvisPersonalLibrary.scanSavedFolder(context))
+                return
+            }
+            normalizedCommand.startsWith("read file ") -> {
+                record(question, JarvisPersonalLibrary.readTextFile(context, question.substringAfter("read file ").trim()))
+                return
+            }
             normalizedCommand in setOf("read screen", "what is on my screen", "what's on my screen", "inspect screen") -> {
                 record(question, JarvisAccessibilityService.readScreen())
                 return
@@ -434,6 +497,32 @@ private fun JarvisApp(onSpeak: (String) -> Unit) {
                             ) { Text("Enable notification access") }
                             Text(
                                 "After enabling, return to JARVIS and try: “read screen”, “check notifications”, “scroll down”, “go back”, or “tap Search”. Taps always require a separate approval.",
+                                color = Color(0xFF8EAAC6),
+                                style = MaterialTheme.typography.bodySmall
+                            )
+
+                            androidx.compose.material3.HorizontalDivider(color = Color(0xFF29435C))
+                            Text("PERSONAL FILES & GALLERY", color = Color(0xFF70DCEB), style = MaterialTheme.typography.labelMedium)
+                            Text(
+                                "Gallery indexing reads file names, sizes and dates only. Shared-folder access lets JARVIS list files and read supported plain-text documents. You choose the folder once; Android still protects private app data.",
+                                color = Color(0xFF9DB5CD),
+                                style = MaterialTheme.typography.bodySmall
+                            )
+                            OutlinedButton(
+                                onClick = { requestGalleryAccess() },
+                                modifier = Modifier.fillMaxWidth(),
+                                shape = RoundedCornerShape(12.dp)
+                            ) { Text("Grant gallery access") }
+                            OutlinedButton(
+                                onClick = { folderPicker.launch(null) },
+                                modifier = Modifier.fillMaxWidth(),
+                                shape = RoundedCornerShape(12.dp)
+                            ) { Text(if (JarvisPersonalLibrary.savedFolder(context) != null) "Change shared folder" else "Choose a folder for JARVIS") }
+                            if (libraryStatus.isNotBlank()) {
+                                Text(libraryStatus, color = Color(0xFF9FC7D8), style = MaterialTheme.typography.bodySmall)
+                            }
+                            Text(
+                                "Commands: “scan gallery”, “scan files”, “read file report.txt”. PDF and Office document extraction, photo OCR and continuous voice calling are still under development.",
                                 color = Color(0xFF8EAAC6),
                                 style = MaterialTheme.typography.bodySmall
                             )
