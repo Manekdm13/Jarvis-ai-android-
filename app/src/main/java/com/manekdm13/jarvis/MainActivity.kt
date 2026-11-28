@@ -32,6 +32,8 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.infiniteRepeatable
@@ -429,7 +431,7 @@ private fun JarvisApp(
                 )
         ) {
             Column(
-                modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp, vertical = 14.dp),
+                modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp, vertical = 14.dp).then(if (selectedTab == "home" || selectedTab == "settings" || selectedTab == "library") Modifier.verticalScroll(rememberScrollState()) else Modifier),
                 verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
                 Row(
@@ -527,7 +529,7 @@ private fun JarvisApp(
                 }
                 Surface(shape = RoundedCornerShape(20.dp), color = Color(0xFF101D2F), modifier = Modifier.fillMaxWidth()) {
                     Row(Modifier.fillMaxWidth().padding(horizontal = 3.dp, vertical = 4.dp), horizontalArrangement = Arrangement.SpaceEvenly, verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
-                        listOf("home" to "Home", "chat" to "Chat", "library" to "Library", "tasks" to "Activity", "settings" to "Settings").forEach { (tab, label) ->
+                        listOf("home" to "Home", "chat" to "Chat", "library" to "Library", "tasks" to "Memory", "settings" to "Settings").forEach { (tab, label) ->
                             TextButton(onClick = {
                                 selectedTab = tab
                                 showSettings = tab == "settings"
@@ -810,13 +812,32 @@ private fun JarvisApp(
                 }
 
                 if (selectedTab == "chat") Card(
-                    shape = RoundedCornerShape(22.dp),
+                    shape = RoundedCornerShape(26.dp),
                     colors = androidx.compose.material3.CardDefaults.cardColors(containerColor = Color(0xFF111E30))
                 ) {
                     Column(
-                        modifier = Modifier.fillMaxWidth().padding(10.dp),
-                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                        modifier = Modifier.fillMaxWidth().padding(12.dp),
+                        verticalArrangement = Arrangement.spacedBy(10.dp)
                     ) {
+                        if (voiceSessionActive) {
+                            Surface(
+                                shape = RoundedCornerShape(20.dp),
+                                color = Color(0xFF123C43),
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                Row(
+                                    modifier = Modifier.fillMaxWidth().padding(14.dp),
+                                    verticalAlignment = androidx.compose.ui.Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.SpaceBetween
+                                ) {
+                                    Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                                        Text("LIVE VOICE SESSION", color = Color(0xFF8CF3E7), style = MaterialTheme.typography.labelMedium)
+                                        Text("JARVIS is listening for your next instruction", color = Color(0xFFE7F7F5), style = MaterialTheme.typography.bodySmall)
+                                    }
+                                    TextButton(onClick = { onStopVoice(); voiceSessionActive = false }) { Text("End call") }
+                                }
+                            }
+                        }
                         OutlinedTextField(
                             value = input,
                             onValueChange = { input = it },
