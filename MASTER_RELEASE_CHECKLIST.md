@@ -60,3 +60,14 @@ This branch is the integration target for the master product. Do not publish an 
 
 ## Definition of done
 A feature is complete only when its implementation is merged, tests pass, its permission/privacy behavior is documented, and it has been exercised on a representative Android device. A CI debug APK is a test artifact, not a customer release. Do not create routine APK artifacts while working through this checklist.
+
+
+### 7. Side-income agent (required master subsystem)
+- [ ] Implement the requirements in [SIDE_INCOME_AGENT_REQUIREMENTS.md](SIDE_INCOME_AGENT_REQUIREMENTS.md): Pakistan-focused discovery of surveys, research studies, app testing, AI/data tasks, transcription, web research, and other legitimate micro-work.
+- [ ] Verify each platform's current Pakistan eligibility, automation rules, and actual payout options before recommending or executing tasks.
+- [ ] Support the user's available payout routes (JazzCash, Easypaisa, Payoneer, Pakistani bank account) where each platform offers them; do not imply universal platform support.
+- [ ] Add opportunity ranking by expected net hourly return, reliability, eligibility, risk, withdrawal threshold, fees, and payment timing.
+- [ ] Implement permitted task execution, with user handoff for genuine opinions, identity checks, CAPTCHA, physical tasks, and personal attestations.
+- [ ] Add approval gates for account creation, identity submission, applications/messages, contracts, and payout changes.
+- [ ] Add an auditable earnings ledger distinguishing submitted, pending, approved, rejected, and actually paid amounts.
+- [ ] Test safe background scheduling, pause/revoke controls, recovery, and duplicate-submission prevention.
