@@ -598,7 +598,7 @@ export default {
     return json({ error: "All configured free AI providers are temporarily unavailable.", details: failures }, 502);
   },
 
-  async scheduled(_controller: ScheduledController, env: Env, ctx: ExecutionContext): Promise<void> {
+  async scheduled(_controller: unknown, env: Env, ctx: { waitUntil(promise: Promise<unknown>): void }): Promise<void> {
     if (!env.JARVIS_KNOWLEDGE) return;
     ctx.waitUntil(runLearningCycle(env.JARVIS_KNOWLEDGE, async (topic, title, sourceUrl, excerpt) => {
       const response = await askBrain(env,
