@@ -220,6 +220,7 @@ private fun JarvisApp(
     var webAgentStatus by remember { mutableStateOf("") }
     var isRunningWebAgent by remember { mutableStateOf(false) }
     var showSettings by remember { mutableStateOf(false) }
+    var selectedTab by remember { mutableStateOf("home") }
     var showRemember by remember { mutableStateOf(false) }
     var rememberSearch by remember { mutableStateOf("") }
     var memoryEntries by remember(memory) { mutableStateOf(memory.load()) }
@@ -404,7 +405,7 @@ private fun JarvisApp(
         }
     }
 
-    voiceTranscriptHandler = { spoken -> input = spoken; sendMessage() }
+    voiceTranscriptHandler = { spoken -> selectedTab = "chat"; input = spoken; sendMessage() }
 
     val jarvisColors = darkColorScheme(
         primary = Color(0xFF65E6F2),
@@ -460,79 +461,82 @@ private fun JarvisApp(
                     }
                 }
 
-                JarvisCore(isThinking = isThinking)
-
-                Card(
-                    shape = RoundedCornerShape(22.dp),
-                    colors = androidx.compose.material3.CardDefaults.cardColors(
-                        containerColor = Color(0xFF12243A)
-                    ),
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth().padding(14.dp),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = androidx.compose.ui.Alignment.CenterVertically
+                if (selectedTab == "home") {
+                    Card(
+                        shape = RoundedCornerShape(30.dp),
+                        colors = androidx.compose.material3.CardDefaults.cardColors(containerColor = Color(0xFF101D30)),
+                        modifier = Modifier.fillMaxWidth()
                     ) {
-                        Column(modifier = Modifier.weight(1f)) {
-                            Text("Your assistant is ready", color = Color(0xFFEAF7FF), style = MaterialTheme.typography.titleMedium)
-                            Text(
-                                "Ask anything. Your phone actions stay under your control.",
-                                color = Color(0xFF9DB5CD),
-                                style = MaterialTheme.typography.bodySmall
-                            )
-                        }
-                        Button(
-                            onClick = {
-                                if (!isCheckingUpdate) {
-                                    isCheckingUpdate = true
-                                    updateStatus = "Checking for a new JARVIS release…"
-                                    scope.launch {
-                                        try {
-                                            val update = AppUpdater.check()
-                                            if (update == null) {
-                                                updateStatus = "You're using the latest published release."
-                                            } else if (
-                                                Build.VERSION.SDK_INT >= Build.VERSION_CODES.O &&
-                                                !context.packageManager.canRequestPackageInstalls()
-                                            ) {
-                                                updateStatus = "Allow JARVIS to install updates, then check again."
-                                                context.startActivity(
-                                                    Intent(
-                                                        Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES,
-                                                        Uri.parse("package:${context.packageName}")
-                                                    )
-                                                )
-                                            } else {
-                                                updateStatus = "Downloading JARVIS ${update.versionName}…"
-                                                AppUpdater.downloadAndInstall(context, update)
-                                                updateStatus = "Android installer opened. Confirm the update there."
-                                            }
-                                        } catch (error: Exception) {
-                                            updateStatus = "Update check failed: ${error.message ?: "unknown error"}"
-                                        } finally {
-                                            isCheckingUpdate = false
-                                        }
-                                    }
+                        Column(Modifier.fillMaxWidth().padding(18.dp), verticalArrangement = Arrangement.spacedBy(12.dp), horizontalAlignment = androidx.compose.ui.Alignment.CenterHorizontally) {
+                            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
+                                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                                    Text("YOUR PERSONAL AI", color = Color(0xFF8EA9C4), style = MaterialTheme.typography.labelSmall)
+                                    Text("What can I do for you?", color = Color(0xFFF2F7FF), style = MaterialTheme.typography.headlineSmall)
                                 }
-                            },
-                            enabled = !isCheckingUpdate,
-                            shape = RoundedCornerShape(14.dp)
-                        ) {
-                            Text(if (isCheckingUpdate) "…" else "Update")
+                                Surface(shape = CircleShape, color = if (isThinking) Color(0xFF493719) else Color(0xFF123D39)) {
+                                    Text(if (isThinking) "WORKING" else "READY", Modifier.padding(horizontal = 12.dp, vertical = 8.dp), color = if (isThinking) Color(0xFFFFD28B) else Color(0xFF7DE6C1), style = MaterialTheme.typography.labelSmall)
+                                }
+                            }
+                            JarvisCore(isThinking = isThinking)
+                            Text("One assistant for conversation, files, research and phone actions.", color = Color(0xFF9DB0C7), style = MaterialTheme.typography.bodyMedium)
+                            Button(onClick = { selectedTab = "chat" }, Modifier.fillMaxWidth().height(54.dp), shape = RoundedCornerShape(18.dp)) {
+                                Text("Open conversation  →", style = MaterialTheme.typography.titleMedium)
+                            }
+                            OutlinedButton(
+                                onClick = {
+                                    selectedTab = "chat"
+                                    if (context.checkSelfPermission(Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED) {
+                                        voiceSessionActive = true; onStartVoice(voiceTranscriptHandler)
+                                    } else microphonePermissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
+                                },
+                                Modifier.fillMaxWidth().height(50.dp), shape = RoundedCornerShape(18.dp)
+                            ) { Text(if (voiceSessionActive) "Voice session active" else "Start voice call  •  🎙") }
+                        }
+                    }
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                        Card(Modifier.weight(1f), shape = RoundedCornerShape(22.dp), colors = androidx.compose.material3.CardDefaults.cardColors(containerColor = Color(0xFF15263B))) {
+                            Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(5.dp)) {
+                                Text("PERSONAL LIBRARY", color = Color(0xFF78DDE8), style = MaterialTheme.typography.labelSmall)
+                                Text("Files & gallery", color = Color(0xFFF0F5FC), style = MaterialTheme.typography.titleMedium)
+                                Text("Find your content", color = Color(0xFF9DB0C7), style = MaterialTheme.typography.bodySmall)
+                                TextButton(onClick = { selectedTab = "library" }) { Text("Open →") }
+                            }
+                        }
+                        Card(Modifier.weight(1f), shape = RoundedCornerShape(22.dp), colors = androidx.compose.material3.CardDefaults.cardColors(containerColor = Color(0xFF15263B))) {
+                            Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(5.dp)) {
+                                Text("WORKSPACE", color = Color(0xFFB4A8FF), style = MaterialTheme.typography.labelSmall)
+                                Text("Activity & memory", color = Color(0xFFF0F5FC), style = MaterialTheme.typography.titleMedium)
+                                Text("Your recent conversations", color = Color(0xFF9DB0C7), style = MaterialTheme.typography.bodySmall)
+                                TextButton(onClick = { selectedTab = "tasks"; showRemember = true; memoryEntries = memory.load() }) { Text("View →") }
+                            }
+                        }
+                    }
+                    Card(shape = RoundedCornerShape(22.dp), colors = androidx.compose.material3.CardDefaults.cardColors(containerColor = Color(0xFF111F32)), modifier = Modifier.fillMaxWidth()) {
+                        Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                            Text("QUICK ACTIONS", color = Color(0xFF78DDE8), style = MaterialTheme.typography.labelMedium)
+                            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                OutlinedButton(onClick = { selectedTab = "chat"; input = "Scan gallery" }, Modifier.weight(1f), shape = RoundedCornerShape(14.dp)) { Text("Scan gallery") }
+                                OutlinedButton(onClick = { selectedTab = "chat"; input = "Check notifications" }, Modifier.weight(1f), shape = RoundedCornerShape(14.dp)) { Text("Notifications") }
+                            }
+                            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                OutlinedButton(onClick = { selectedTab = "chat"; input = "Read screen" }, Modifier.weight(1f), shape = RoundedCornerShape(14.dp)) { Text("Read screen") }
+                                OutlinedButton(onClick = { selectedTab = "chat"; input = "Scan files" }, Modifier.weight(1f), shape = RoundedCornerShape(14.dp)) { Text("Scan files") }
+                            }
                         }
                     }
                 }
-
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = androidx.compose.ui.Alignment.CenterVertically
-                ) {
-                    Text(if (showRemember) "REMEMBER" else "CONVERSATION", color = Color(0xFF8EAAC6), style = MaterialTheme.typography.labelMedium)
-                    TextButton(onClick = { showRemember = !showRemember; if (showRemember) { memoryEntries = memory.load(); showSettings = false } }) { Text(if (showRemember) "Back to chat" else "Remember") }
-                    TextButton(onClick = { showSettings = !showSettings }) {
-                        Text(if (showSettings) "Hide settings" else "Connection settings")
+                Surface(shape = RoundedCornerShape(20.dp), color = Color(0xFF101D2F), modifier = Modifier.fillMaxWidth()) {
+                    Row(Modifier.fillMaxWidth().padding(horizontal = 3.dp, vertical = 4.dp), horizontalArrangement = Arrangement.SpaceEvenly, verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
+                        listOf("home" to "Home", "chat" to "Chat", "library" to "Library", "tasks" to "Activity", "settings" to "Settings").forEach { (tab, label) ->
+                            TextButton(onClick = {
+                                selectedTab = tab
+                                showSettings = tab == "settings"
+                                showRemember = tab == "tasks"
+                                if (tab == "tasks") memoryEntries = memory.load()
+                            }) {
+                                Text(label, color = if (selectedTab == tab) Color(0xFF77E5EE) else Color(0xFF8FA5BF), style = MaterialTheme.typography.labelMedium)
+                            }
+                        }
                     }
                 }
 
@@ -648,7 +652,7 @@ private fun JarvisApp(
                     Text(updateStatus, color = Color(0xFF9FC7D8), style = MaterialTheme.typography.bodySmall)
                 }
 
-                if (showRemember) {
+                if (selectedTab == "tasks" || showRemember) {
                     Card(
                         shape = RoundedCornerShape(24.dp),
                         colors = androidx.compose.material3.CardDefaults.cardColors(containerColor = Color(0xCC101B2B)),
@@ -717,7 +721,25 @@ private fun JarvisApp(
                             }
                         }
                     }
-                } else {
+                } else if (selectedTab == "library") {
+                    Card(
+                        shape = RoundedCornerShape(24.dp),
+                        colors = androidx.compose.material3.CardDefaults.cardColors(containerColor = Color(0xFF111F32)),
+                        modifier = Modifier.weight(1f).fillMaxWidth()
+                    ) {
+                        Column(Modifier.fillMaxSize().padding(18.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
+                            Text("PERSONAL LIBRARY", color = Color(0xFF78DDE8), style = MaterialTheme.typography.labelMedium)
+                            Text("Your files, within your control.", color = Color(0xFFF0F5FC), style = MaterialTheme.typography.headlineSmall)
+                            Text("Connect your gallery or share a folder once. JARVIS can index available gallery metadata, list shared files, read supported text files, and open matching files.", color = Color(0xFF9DB0C7), style = MaterialTheme.typography.bodyMedium)
+                            Button(onClick = { requestGalleryAccess(); libraryStatus = "Review Android's media permission prompt." }, Modifier.fillMaxWidth(), shape = RoundedCornerShape(16.dp)) { Text("Connect gallery") }
+                            OutlinedButton(onClick = { folderPicker.launch(null) }, Modifier.fillMaxWidth(), shape = RoundedCornerShape(16.dp)) { Text(if (JarvisPersonalLibrary.savedFolder(context) != null) "Change shared folder" else "Choose folder") }
+                            OutlinedButton(onClick = { input = "Scan gallery"; selectedTab = "chat" }, Modifier.fillMaxWidth(), shape = RoundedCornerShape(16.dp)) { Text("Index gallery") }
+                            OutlinedButton(onClick = { input = "Scan files"; selectedTab = "chat" }, Modifier.fillMaxWidth(), shape = RoundedCornerShape(16.dp)) { Text("Index shared files") }
+                            if (libraryStatus.isNotBlank()) Text(libraryStatus, color = Color(0xFF9FC7D8), style = MaterialTheme.typography.bodySmall)
+                            Text("Private app data remains protected by Android. JARVIS only reads media and folders you authorize.", color = Color(0xFF8EAAC6), style = MaterialTheme.typography.bodySmall)
+                        }
+                    }
+                } else if (selectedTab == "chat") {
                 Card(
                     shape = RoundedCornerShape(24.dp),
                     colors = androidx.compose.material3.CardDefaults.cardColors(containerColor = Color(0xCC101B2B)),
@@ -787,7 +809,7 @@ private fun JarvisApp(
                 }
                 }
 
-                Card(
+                if (selectedTab == "chat") Card(
                     shape = RoundedCornerShape(22.dp),
                     colors = androidx.compose.material3.CardDefaults.cardColors(containerColor = Color(0xFF111E30))
                 ) {
