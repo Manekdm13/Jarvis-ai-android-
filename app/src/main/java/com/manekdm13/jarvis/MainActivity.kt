@@ -466,13 +466,14 @@ private fun JarvisApp(
                         )
                     }
                     Row(verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
+                        val gatewayReached = gatewayTestStatus.startsWith("Android reached the gateway.")
                         Surface(
                             shape = CircleShape,
-                            color = Color(0xFF123A3B),
-                            contentColor = Color(0xFF78F0D0)
+                            color = if (gatewayReached) Color(0xFF123A3B) else Color(0xFF493719),
+                            contentColor = if (gatewayReached) Color(0xFF78F0D0) else Color(0xFFFFD28B)
                         ) {
                             Text(
-                                "  ● ONLINE  ",
+                                if (gatewayReached) "  ● GATEWAY REACHED  " else "  ● NOT VERIFIED  ",
                                 modifier = Modifier.padding(horizontal = 8.dp, vertical = 7.dp),
                                 style = MaterialTheme.typography.labelSmall
                             )
