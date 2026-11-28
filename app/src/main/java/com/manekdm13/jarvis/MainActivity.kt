@@ -223,6 +223,12 @@ private fun JarvisApp(
     var isRunningWebAgent by remember { mutableStateOf(false) }
     var showSettings by remember { mutableStateOf(false) }
     var selectedTab by remember { mutableStateOf("home") }
+    val sectionHubScrollState = rememberScrollState()
+    LaunchedEffect(selectedTab) {
+        if (selectedTab == "modules" || selectedTab == "section") {
+            sectionHubScrollState.scrollTo(0)
+        }
+    }
     var activeSectionId by remember { mutableStateOf<String?>(null) }
     val taskEngine = remember(context) { JarvisTaskEngine(context.applicationContext) }
     var agentTasks by remember(taskEngine) { mutableStateOf(taskEngine.load()) }
@@ -439,7 +445,7 @@ private fun JarvisApp(
                 )
         ) {
             Column(
-                modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp, vertical = 14.dp).then(if (selectedTab == "home" || selectedTab == "settings" || selectedTab == "library" || selectedTab == "modules" || selectedTab == "section" || selectedTab == "agent") Modifier.verticalScroll(rememberScrollState()) else Modifier),
+                modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp, vertical = 14.dp).then(if (selectedTab == "home" || selectedTab == "settings" || selectedTab == "library" || selectedTab == "modules" || selectedTab == "section" || selectedTab == "agent") Modifier.verticalScroll(sectionHubScrollState) else Modifier),
                 verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
                 Row(
