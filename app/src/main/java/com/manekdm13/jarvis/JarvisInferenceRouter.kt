@@ -11,6 +11,9 @@ internal object JarvisInferenceRouter {
 
     data class Result(val text: String, val provider: String, val fallbackUsed: Boolean = false)
 
+    fun mayUseCloudResearch(mode: String, allowCloudFallback: Boolean): Boolean =
+        mode.ifBlank { MODE_CLOUD } == MODE_CLOUD || allowCloudFallback
+
     fun reply(
         mode: String,
         ollamaUrl: String,
