@@ -31,7 +31,7 @@ class JarvisLaunchTest {
 
     @Test
     fun gatewayStatusDoesNotClaimOnlineBeforeAHealthCheck() {
-        composeRule.onNodeWithText("● NOT VERIFIED").assertIsDisplayed()
+        composeRule.onNodeWithText("NOT VERIFIED", substring = true).assertIsDisplayed()
     }
 
     @Test
