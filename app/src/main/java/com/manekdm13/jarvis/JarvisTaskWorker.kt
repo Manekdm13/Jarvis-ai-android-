@@ -132,7 +132,7 @@ internal class JarvisTaskWorker(
             // Best-effort current web research through the gateway's read-only browser path.
             val researchTerms = listOf("research", "latest", "current", "today", "scholarship", "deadline", "job", "internship", "opportunity", "compare", "price", "market", "2027", "2026")
             val needsResearch = researchTerms.any { goal.contains(it, ignoreCase = true) }
-            val researchContext = if (needsResearch && (inferenceMode == JarvisInferenceRouter.MODE_CLOUD || allowCloudFallback)) {
+            val researchContext = if (needsResearch && JarvisInferenceRouter.mayUseCloudResearch(inferenceMode, allowCloudFallback)) {
                 setProgress(Data.Builder().putString(KEY_TASK_ID, taskId).putString(KEY_STATUS, "Checking current information on the web").putInt(KEY_PROGRESS, 20).build())
                 runCatching {
                     val queryUrl = "https://www.google.com/search?q=" + java.net.URLEncoder.encode(goal, Charsets.UTF_8.name())
