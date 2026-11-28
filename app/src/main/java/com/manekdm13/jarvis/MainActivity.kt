@@ -432,7 +432,7 @@ private fun JarvisApp(
                 )
         ) {
             Column(
-                modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp, vertical = 14.dp).then(if (selectedTab == "home" || selectedTab == "settings" || selectedTab == "library") Modifier.verticalScroll(rememberScrollState()) else Modifier),
+                modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp, vertical = 14.dp).then(if (selectedTab == "home" || selectedTab == "settings" || selectedTab == "library" || selectedTab == "modules") Modifier.verticalScroll(rememberScrollState()) else Modifier),
                 verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
                 Row(
@@ -528,9 +528,11 @@ private fun JarvisApp(
                         }
                     }
                 }
+                if (selectedTab == "modules") { Text("JARVIS 3.0 • 21 SYSTEM SECTIONS", color = Color(0xFF78DDE8), style = MaterialTheme.typography.titleMedium); Text("One central AI brain. Shared memory. Permission-gated actions. Planned sections are not yet fully connected.", color = Color(0xFF9DB0C7), style = MaterialTheme.typography.bodySmall); JarvisSections.all.forEach { section -> Card(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(16.dp), colors = androidx.compose.material3.CardDefaults.cardColors(containerColor = Color(0xFF111F32))) { Row(modifier = Modifier.fillMaxWidth().padding(13.dp), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) { Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) { Text(section.name, color = Color(0xFFEAF4FF), style = MaterialTheme.typography.titleSmall); Text(section.description, color = Color(0xFF9DB0C7), style = MaterialTheme.typography.bodySmall); Text(if (section.status == SectionStatus.FOUNDATION) "FOUNDATION AVAILABLE" else "PLANNED • CENTRAL BRAIN ROUTING", color = if (section.status == SectionStatus.FOUNDATION) Color(0xFF78E0C2) else Color(0xFFFFD28B), style = MaterialTheme.typography.labelSmall) }; TextButton(onClick = { activeSectionId = section.id; selectedTab = "chat"; input = "Open the " + section.name + " section. " + section.description + " Tell me what you can do now and what still needs implementation." }) { Text("Open") } } } } }
+
                 Surface(shape = RoundedCornerShape(20.dp), color = Color(0xFF101D2F), modifier = Modifier.fillMaxWidth()) {
                     Row(Modifier.fillMaxWidth().padding(horizontal = 3.dp, vertical = 4.dp), horizontalArrangement = Arrangement.SpaceEvenly, verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
-                        listOf("home" to "Home", "chat" to "Chat", "library" to "Library", "tasks" to "Memory", "settings" to "Settings").forEach { (tab, label) ->
+                        listOf("home" to "Home", "chat" to "Chat", "modules" to "21 Sections", "library" to "Library", "tasks" to "Memory", "settings" to "Settings").forEach { (tab, label) ->
                             TextButton(onClick = {
                                 selectedTab = tab
                                 showSettings = tab == "settings"
