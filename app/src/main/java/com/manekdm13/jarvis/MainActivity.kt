@@ -1168,7 +1168,7 @@ private fun JarvisApp(
             confirmButton = {
                 Button(onClick = {
                     pendingTaskApproval = null
-                    taskEngine.updateStatus(task.id, JarvisTaskStatus.IN_PROGRESS, "User approved background preparation only.")
+                    taskEngine.updateStatus(task.id, JarvisTaskStatus.IN_PROGRESS)
                     JarvisTaskScheduler.enqueue(context, task.id)
                     agentTasks = taskEngine.load()
                 }) { Text("Approve preparation once") }
