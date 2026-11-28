@@ -3,10 +3,10 @@ package com.manekdm13.jarvis
 /**
  * JARVIS 3.0's 21-section product map.
  *
- * A catalog entry describes a user-facing specialist area; it does not claim
- * that every integration or autonomous action is already implemented.
- * All sections share the central assistant conversation and existing
- * permission/approval boundaries.
+ * Every section is an AI-routed specialist workspace using the shared gateway.
+ * FOUNDATION marks native app capabilities; AI_WORKSPACE marks domain workflows
+ * routed through the specialist prompt. External data providers and Android actions
+ * still require their own configured services, permissions, and approval gates.
  */
 data class JarvisSection(
     val id: String,
@@ -15,7 +15,7 @@ data class JarvisSection(
     val status: SectionStatus
 )
 
-enum class SectionStatus { FOUNDATION, PLANNED }
+enum class SectionStatus { FOUNDATION, AI_WORKSPACE }
 
 object JarvisSections {
     val all = listOf(
@@ -23,7 +23,7 @@ object JarvisSections {
         JarvisSection("brain", "AI Brain", "Central reasoning, task classification and provider orchestration.", SectionStatus.FOUNDATION),
         JarvisSection("voice", "Voice Assistant", "Speech input, spoken replies and future wake-word controls.", SectionStatus.FOUNDATION),
         JarvisSection("memory", "Personal Memory", "Searchable conversation history and opt-in profile memory.", SectionStatus.FOUNDATION),
-        JarvisSection("agent", "Autonomous Agent", "Plan multi-step work, track progress and recover from safe failures.", SectionStatus.PLANNED),
+        JarvisSection("agent", "Autonomous Agent", "Plan multi-step work, track progress and recover from safe failures.", SectionStatus.AI_WORKSPACE),
         JarvisSection("phone", "Phone Control", "Permission-gated Android actions with approval before consequential steps.", SectionStatus.FOUNDATION),
         JarvisSection("communication", "Communication", "Assist with messages, email and social workflows; confirm before sending.", SectionStatus.PLANNED),
         JarvisSection("research", "Research Lab", "Web and scientific research with citations, dates and evidence quality.", SectionStatus.FOUNDATION),
