@@ -1,9 +1,14 @@
 package com.manekdm13.jarvis
 
 import android.content.Context
+import android.content.Intent
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.onAllNodesWithText
+import androidx.compose.ui.test.performScrollTo
+import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.hasSetTextAction
 import androidx.test.platform.app.InstrumentationRegistry
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -19,9 +24,39 @@ class JarvisLaunchTest {
     @Test
     fun launchShowsAssistantAndApprovalPolicy() {
         composeRule.onNodeWithText("J.A.R.V.I.S").assertIsDisplayed()
-        composeRule.onNodeWithText("Your assistant is ready").assertIsDisplayed()
-        composeRule.onNodeWithText("Message your assistant…").assertIsDisplayed()
+        composeRule.onNodeWithText("One assistant for conversation, files, research and phone actions.").assertIsDisplayed()
+        composeRule.onNodeWithText("Chat").performScrollTo().performClick()
+        composeRule.onNode(hasSetTextAction()).assertIsDisplayed()
         composeRule.onNodeWithText("Send  ➤").assertIsDisplayed()
+    }
+
+
+    @Test
+    fun gatewayStatusDoesNotClaimOnlineBeforeAHealthCheck() {
+        composeRule.onNodeWithText("NOT VERIFIED", substring = true).assertIsDisplayed()
+    }
+
+    @Test
+    fun settingsIsReachableFromHeaderOnNarrowScreens() {
+        composeRule.onNodeWithText("⚙ Settings").assertIsDisplayed().performClick()
+        composeRule.waitForIdle()
+        composeRule.onNodeWithText("AI gateway URL").assertIsDisplayed()
+        composeRule.onNodeWithText("Private gateway token").assertIsDisplayed()
+        composeRule.onNodeWithText("Test gateway connection").assertIsDisplayed()
+    }
+
+    @Test
+    fun sectionHubOpensARealSpecialistWorkspace() {
+        composeRule.onNodeWithText("21 Sections").performScrollTo().performClick()
+        composeRule.waitForIdle()
+        composeRule.onNodeWithText("JARVIS 3.0 • 21 SYSTEM SECTIONS").assertIsDisplayed()
+        composeRule.onAllNodesWithText("Open")[0].performClick()
+        composeRule.onNodeWithText("Command Centre").assertIsDisplayed()
+        composeRule.onNodeWithText("QUICK ACTIONS").assertIsDisplayed()
+        composeRule.onNodeWithText("Show my system status").assertIsDisplayed()
+        composeRule.onNodeWithText("← All 21 sections").performClick()
+        composeRule.waitForIdle()
+        composeRule.onNodeWithText("JARVIS 3.0 • 21 SYSTEM SECTIONS").assertIsDisplayed()
     }
 
     @Test
@@ -107,6 +142,133 @@ class JarvisLaunchTest {
 
         profileMemory.clear()
         assertEquals("Clearing must disable profile context", "", profileMemory.loadSaved())
+    }
+
+    @Test
+    fun autonomousTaskLedgerPersistsStateAcrossEngineInstances() {
+        val testContext = InstrumentationRegistry.getInstrumentation().targetContext
+        testContext.getSharedPreferences("jarvis_task_ledger", Context.MODE_PRIVATE)
+            .edit().clear().commit()
+
+        val firstEngine = JarvisTaskEngine(testContext)
+        val created = firstEngine.create("Regression: plan a research task", "Persist this note")
+        assertEquals(JarvisTaskStatus.PLANNED, created.status)
+        val encryptedLedger = assertNotNullAndGet(
+            testContext.getSharedPreferences("jarvis_task_ledger", Context.MODE_PRIVATE)
+                .getString("tasks_ciphertext_v2", null)
+        )
+        assertFalse("Task titles must not be stored as plaintext", encryptedLedger.contains("Regression: plan a research task"))
+        assertFalse("Legacy plaintext ledger key must be removed after save",
+            testContext.getSharedPreferences("jarvis_task_ledger", Context.MODE_PRIVATE).contains("tasks_v1"))
+
+        val restoredEngine = JarvisTaskEngine(testContext)
+        val restored = restoredEngine.load().single()
+        assertEquals(created.id, restored.id)
+        assertEquals("Persist this note", restored.notes)
+
+        val waiting = restoredEngine.updateStatus(
+            created.id,
+            JarvisTaskStatus.WAITING_FOR_APPROVAL,
+            "A consequential step needs explicit review"
+        )
+        assertEquals(JarvisTaskStatus.WAITING_FOR_APPROVAL, waiting?.status)
+        assertEquals(
+            JarvisTaskStatus.WAITING_FOR_APPROVAL,
+            JarvisTaskEngine(testContext).load().single().status
+        )
+
+        restoredEngine.delete(created.id)
+        assertTrue(JarvisTaskEngine(testContext).load().isEmpty())
+    }
+
+    @Test
+    fun legacyPlaintextTaskLedgerMigratesToKeystoreCiphertext() {
+        val testContext = InstrumentationRegistry.getInstrumentation().targetContext
+        val preferences = testContext.getSharedPreferences("jarvis_task_ledger", Context.MODE_PRIVATE)
+        preferences.edit().clear().putString(
+            "tasks_v1",
+            """[{"id":"legacy-task","title":"Private legacy task","status":"PLANNED","createdAt":1,"updatedAt":1,"notes":"legacy note","planId":""}]"""
+        ).commit()
+
+        val migrated = JarvisTaskEngine(testContext).load().single()
+        assertEquals("legacy-task", migrated.id)
+        assertEquals("Private legacy task", migrated.title)
+        val ciphertext = assertNotNullAndGet(preferences.getString("tasks_ciphertext_v2", null))
+        assertFalse(ciphertext.contains("Private legacy task"))
+        assertFalse(preferences.contains("tasks_v1"))
+        assertEquals("Private legacy task", JarvisTaskEngine(testContext).load().single().title)
+    }
+
+    @Test
+    fun consequentialBackgroundTasksRequireAnApprovalCheckpoint() {
+        assertTrue(JarvisTaskApprovalPolicy.requiresApproval("Send an email to the scholarship office"))
+        assertTrue(JarvisTaskApprovalPolicy.requiresApproval("Delete duplicate files"))
+        assertTrue(JarvisTaskApprovalPolicy.requiresApproval("Publish this social post"))
+        assertFalse(JarvisTaskApprovalPolicy.requiresApproval("Research food safety regulations"))
+        assertFalse(JarvisTaskApprovalPolicy.requiresApproval("Prepare a study plan"))
+    }
+
+    @Test
+    fun autonomousAgentCreatesGroupedMultiStepPlans() {
+        val testContext = InstrumentationRegistry.getInstrumentation().targetContext
+        testContext.getSharedPreferences("jarvis_task_ledger", Context.MODE_PRIVATE)
+            .edit().clear().commit()
+
+        val engine = JarvisTaskEngine(testContext)
+        val steps = engine.createPlan(
+            "Prepare a research report",
+            listOf("1. Define the research question", "2. Find primary sources", "- Compare evidence", "3. Draft findings")
+        )
+
+        assertEquals(4, steps.size)
+        assertEquals(1, steps.mapNotNull { it.planId }.distinct().size)
+        assertTrue(steps.all { it.status == JarvisTaskStatus.PLANNED })
+        assertTrue(steps.all { it.notes.contains("Prepare a research report") })
+        assertEquals(steps.map { it.id }.toSet(), engine.load().map { it.id }.toSet())
+
+        val started = engine.updateStatus(steps.first().id, JarvisTaskStatus.IN_PROGRESS)
+        assertEquals(JarvisTaskStatus.IN_PROGRESS, started?.status)
+        assertEquals(JarvisTaskStatus.PLANNED, engine.load().last().status)
+    }
+
+    @Test
+    fun communicationDraftsAndCallsRequireActionSpecificApproval() {
+        val context = InstrumentationRegistry.getInstrumentation().targetContext
+
+        val email = requireNotNull(resolvePhoneAction(context, "compose email")?.first)
+        assertEquals(Intent.ACTION_SENDTO, email.intent.action)
+        assertEquals("mailto", email.intent.data?.scheme)
+
+        val dial = requireNotNull(resolvePhoneAction(context, "call +1 555 010 1234")?.first)
+        assertEquals(Intent.ACTION_DIAL, dial.intent.action)
+        assertEquals("tel", dial.intent.data?.scheme)
+
+        val whatsapp = resolvePhoneAction(context, "draft whatsapp Please review my application.")
+        if (context.packageManager.getLaunchIntentForPackage("com.whatsapp") != null) {
+            val draft = requireNotNull(whatsapp?.first)
+            assertEquals(Intent.ACTION_SEND, draft.intent.action)
+            assertEquals("com.whatsapp", draft.intent.getPackage())
+            assertEquals("Please review my application.", draft.intent.getStringExtra(Intent.EXTRA_TEXT))
+        } else {
+            assertEquals("WhatsApp is not available on this device.", whatsapp?.second)
+        }
+    }
+
+    @Test
+    fun allTwentyOneSpecialistsHaveUniqueIdsActionsAndOperatingRules() {
+        val sections = JarvisSections.all
+        assertEquals("JARVIS must expose exactly 21 specialist sections", 21, sections.size)
+        assertEquals("Every section ID must be unique", sections.size, sections.map { it.id }.toSet().size)
+        assertEquals("All 14 non-foundation areas must be active AI specialist workspaces", 14, sections.count { it.status == SectionStatus.AI_WORKSPACE })
+
+        sections.forEach { section ->
+            assertTrue("Missing actions for ${section.id}", JarvisSections.actions(section.id).size >= 3)
+            assertTrue(
+                "Missing specialist operating rules for ${section.id}",
+                JarvisSections.systemInstruction(section.id).isNotBlank()
+            )
+            assertEquals(section, JarvisSections.find(section.id))
+        }
     }
 
     private fun assertNotNullAndGet(value: String?): String {

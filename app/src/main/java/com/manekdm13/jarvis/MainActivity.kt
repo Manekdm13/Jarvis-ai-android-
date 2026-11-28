@@ -33,6 +33,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
@@ -73,7 +74,7 @@ import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 
-private data class PendingPhoneAction(
+internal data class PendingPhoneAction(
     val title: String,
     val explanation: String,
     val requestedCommand: String,
@@ -223,6 +224,29 @@ private fun JarvisApp(
     var isRunningWebAgent by remember { mutableStateOf(false) }
     var showSettings by remember { mutableStateOf(false) }
     var selectedTab by remember { mutableStateOf("home") }
+    val sectionHubScrollState = rememberScrollState()
+    LaunchedEffect(selectedTab) {
+        if (selectedTab == "modules" || selectedTab == "section") {
+            sectionHubScrollState.scrollTo(0)
+        }
+    }
+    var activeSectionId by remember { mutableStateOf<String?>(null) }
+    val taskEngine = remember(context) { JarvisTaskEngine(context.applicationContext) }
+    var agentTasks by remember(taskEngine) { mutableStateOf(taskEngine.load()) }
+    LaunchedEffect(selectedTab) {
+        if (selectedTab == "agent") {
+            // Re-enqueue any ledger task left IN_PROGRESS if the process died
+            // between persisting its state and WorkManager accepting the request.
+            val interrupted = taskEngine.load().filter { it.status == JarvisTaskStatus.IN_PROGRESS }
+            interrupted.forEach { JarvisTaskScheduler.enqueue(context, it.id) }
+            agentTasks = taskEngine.load()
+        }
+    }
+    var newTaskTitle by remember { mutableStateOf("") }
+    var planGoal by remember { mutableStateOf("") }
+    var isPlanning by remember { mutableStateOf(false) }
+    var planStatus by remember { mutableStateOf("") }
+    var pendingTaskApproval by remember { mutableStateOf<JarvisTask?>(null) }
     var showRemember by remember { mutableStateOf(false) }
     var rememberSearch by remember { mutableStateOf("") }
     var memoryEntries by remember(memory) { mutableStateOf(memory.load()) }
@@ -390,6 +414,7 @@ private fun JarvisApp(
                             append(activeUserProfile.trim())
                             append("\n\n")
                         }
+                        activeSectionId?.let { sectionId -> JarvisSections.find(sectionId)?.let { section -> append("ACTIVE SPECIALIST SECTION: " + section.name + ". " + section.description + "\nSPECIALIST OPERATING INSTRUCTIONS: " + JarvisSections.systemInstruction(sectionId) + "\n\n") } }
                         append("RECENT CONVERSATION:\n")
                         append(messages.takeLast(20).joinToString("\n"))
                     }
@@ -431,7 +456,7 @@ private fun JarvisApp(
                 )
         ) {
             Column(
-                modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp, vertical = 14.dp).then(if (selectedTab == "home" || selectedTab == "settings" || selectedTab == "library") Modifier.verticalScroll(rememberScrollState()) else Modifier),
+                modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp, vertical = 14.dp).then(if (selectedTab == "home" || selectedTab == "settings" || selectedTab == "library" || selectedTab == "modules" || selectedTab == "section" || selectedTab == "agent") Modifier.verticalScroll(sectionHubScrollState) else Modifier),
                 verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
                 Row(
@@ -450,16 +475,27 @@ private fun JarvisApp(
                             color = Color(0xFF80A5C4)
                         )
                     }
-                    Surface(
-                        shape = CircleShape,
-                        color = Color(0xFF123A3B),
-                        contentColor = Color(0xFF78F0D0)
-                    ) {
-                        Text(
-                            "  ● ONLINE  ",
-                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 7.dp),
-                            style = MaterialTheme.typography.labelSmall
-                        )
+                    Row(verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
+                        val gatewayReached = gatewayTestStatus.startsWith("Android reached the gateway.")
+                        Surface(
+                            shape = CircleShape,
+                            color = if (gatewayReached) Color(0xFF123A3B) else Color(0xFF493719),
+                            contentColor = if (gatewayReached) Color(0xFF78F0D0) else Color(0xFFFFD28B)
+                        ) {
+                            Text(
+                                if (gatewayReached) "  ● GATEWAY REACHED  " else "  ● NOT VERIFIED  ",
+                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 7.dp),
+                                style = MaterialTheme.typography.labelSmall
+                            )
+                        }
+                        TextButton(
+                            onClick = {
+                                selectedTab = "settings"
+                                showSettings = true
+                            }
+                        ) {
+                            Text("⚙ Settings", color = Color(0xFF77E5EE), style = MaterialTheme.typography.labelMedium)
+                        }
                     }
                 }
 
@@ -527,18 +563,162 @@ private fun JarvisApp(
                         }
                     }
                 }
-                Surface(shape = RoundedCornerShape(20.dp), color = Color(0xFF101D2F), modifier = Modifier.fillMaxWidth()) {
-                    Row(Modifier.fillMaxWidth().padding(horizontal = 3.dp, vertical = 4.dp), horizontalArrangement = Arrangement.SpaceEvenly, verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
-                        listOf("home" to "Home", "chat" to "Chat", "library" to "Library", "tasks" to "Memory", "settings" to "Settings").forEach { (tab, label) ->
-                            TextButton(onClick = {
-                                selectedTab = tab
-                                showSettings = tab == "settings"
-                                showRemember = tab == "tasks"
-                                if (tab == "tasks") memoryEntries = memory.load()
-                            }) {
-                                Text(label, color = if (selectedTab == tab) Color(0xFF77E5EE) else Color(0xFF8FA5BF), style = MaterialTheme.typography.labelMedium)
+                if (selectedTab == "agent") {
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
+                        Text("AUTONOMOUS WORKSPACE", color = Color(0xFF78DDE8), style = MaterialTheme.typography.titleMedium)
+                        TextButton(onClick = { agentTasks = taskEngine.load() }) { Text("Refresh") }
+                    }
+                    Text("Background tasks are persisted by WorkManager and the encrypted task ledger. JARVIS can research, reason and draft while the app is closed. Sending, publishing, deleting, purchasing and phone actions are not performed by this worker.", color = Color(0xFF9DB0C7), style = MaterialTheme.typography.bodySmall)
+                    Card(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(18.dp), colors = androidx.compose.material3.CardDefaults.cardColors(containerColor = Color(0xFF111F32))) {
+                        Column(Modifier.fillMaxWidth().padding(14.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                            OutlinedTextField(value = newTaskTitle, onValueChange = { newTaskTitle = it }, modifier = Modifier.fillMaxWidth(), label = { Text("Add a task for JARVIS to track") }, placeholder = { Text("e.g. Prepare my scholarship shortlist") }, minLines = 2, maxLines = 3)
+                            Button(enabled = newTaskTitle.isNotBlank(), onClick = {
+                                runCatching { taskEngine.create(newTaskTitle) }.onSuccess {
+                                    newTaskTitle = ""
+                                    agentTasks = taskEngine.load()
+                                }
+                            }, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(14.dp)) { Text("Save task") }
+                            OutlinedTextField(
+                                value = planGoal,
+                                onValueChange = { planGoal = it },
+                                modifier = Modifier.fillMaxWidth(),
+                                label = { Text("Give JARVIS a goal to plan") },
+                                placeholder = { Text("e.g. Build a fully sourced scholarship shortlist") },
+                                minLines = 2,
+                                maxLines = 3
+                            )
+                            Button(
+                                enabled = planGoal.isNotBlank() && gatewayUrl.isNotBlank() && !isPlanning,
+                                onClick = {
+                                    val goal = planGoal.trim()
+                                    isPlanning = true
+                                    planStatus = "JARVIS is breaking the goal into actionable steps…"
+                                    scope.launch {
+                                        val result = withContext(Dispatchers.IO) {
+                                            runCatching {
+                                                AiGatewayClient.reply(
+                                                    gatewayUrl,
+                                                    gatewayToken,
+                                                    "Create a practical execution plan for this goal: $goal. Return 4 to 8 concrete, ordered, independently trackable steps. Output ONLY a numbered list, one action per line. Do not claim to perform any action, access private accounts, send messages, spend money, or change data. Mark steps that will later require user approval in the wording.",
+                                                    "You are JARVIS's task planner. Plans must be realistic, testable, and safe. Do not invent completed work."
+                                                )
+                                            }
+                                        }
+                                        result.onSuccess { response ->
+                                            val steps = response.lines().filter {
+                                                it.trim().matches(Regex("^(?:[0-9]+[.)]|[-*•])\\s+.+"))
+                                            }
+                                            runCatching { taskEngine.createPlan(goal, steps) }
+                                                .onSuccess { created ->
+                                                    planStatus = "Created " + created.size + " trackable steps. Nothing has been executed yet."
+                                                    planGoal = ""
+                                                    agentTasks = taskEngine.load()
+                                                }
+                                                .onFailure { error ->
+                                                    planStatus = "Couldn't save the plan: " + (error.message ?: "invalid plan response")
+                                                }
+                                        }.onFailure { error ->
+                                            planStatus = "Planning failed: " + (error.message ?: "AI gateway unavailable")
+                                        }
+                                        isPlanning = false
+                                    }
+                                },
+                                modifier = Modifier.fillMaxWidth(),
+                                shape = RoundedCornerShape(14.dp)
+                            ) { Text(if (isPlanning) "Planning…" else "Create AI task plan") }
+                            if (planStatus.isNotBlank()) {
+                                Text(planStatus, color = Color(0xFF9DB0C7), style = MaterialTheme.typography.bodySmall)
                             }
                         }
+                    }
+                    if (agentTasks.isEmpty()) {
+                        Text("No tracked tasks yet. Add one above; JARVIS will keep its status on this device.", color = Color(0xFF9DB0C7), style = MaterialTheme.typography.bodyMedium)
+                    } else {
+                        agentTasks.sortedByDescending { it.updatedAt }.forEach { task ->
+                            Card(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(16.dp), colors = androidx.compose.material3.CardDefaults.cardColors(containerColor = Color(0xFF111F32))) {
+                                Column(Modifier.fillMaxWidth().padding(13.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                                    Text(task.title, color = Color(0xFFEAF4FF), style = MaterialTheme.typography.titleSmall)
+                                    Text(task.status.name.replace('_', ' '), color = if (task.status == JarvisTaskStatus.COMPLETED) Color(0xFF78E0C2) else Color(0xFFFFD28B), style = MaterialTheme.typography.labelSmall)
+                                    if (task.status == JarvisTaskStatus.COMPLETED && task.notes.isNotBlank()) {
+                                        Text(task.notes.take(700), color = Color(0xFFB5C7D9), style = MaterialTheme.typography.bodySmall)
+                                    }
+                                    Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                                        if (task.status == JarvisTaskStatus.WAITING_FOR_APPROVAL) {
+                                            TextButton(onClick = { pendingTaskApproval = task }) { Text("Review approval") }
+                                        } else if (task.status == JarvisTaskStatus.PLANNED || task.status == JarvisTaskStatus.FAILED || task.status == JarvisTaskStatus.CANCELLED) {
+                                            TextButton(onClick = {
+                                                if (JarvisTaskApprovalPolicy.requiresApproval(task.title + " " + task.notes)) {
+                                                    val waiting = taskEngine.updateStatus(task.id, JarvisTaskStatus.WAITING_FOR_APPROVAL)
+                                                    pendingTaskApproval = waiting
+                                                } else {
+                                                    taskEngine.updateStatus(task.id, JarvisTaskStatus.IN_PROGRESS)
+                                                    JarvisTaskScheduler.enqueue(context, task.id)
+                                                }
+                                                agentTasks = taskEngine.load()
+                                            }) { Text("Run in background") }
+                                        }
+                                        if (task.status == JarvisTaskStatus.IN_PROGRESS) {
+                                            TextButton(onClick = {
+                                                JarvisTaskScheduler.cancel(context, task.id)
+                                                taskEngine.updateStatus(task.id, JarvisTaskStatus.CANCELLED, "Cancelled by the user.")
+                                                agentTasks = taskEngine.load()
+                                            }) { Text("Cancel") }
+                                        }
+                                        TextButton(onClick = { taskEngine.delete(task.id); agentTasks = taskEngine.load() }) { Text("Delete") }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+
+                if (selectedTab == "modules") {
+                    Text("JARVIS 3.0 • 21 SYSTEM SECTIONS", color = Color(0xFF78DDE8), style = MaterialTheme.typography.titleMedium)
+                    Text("Choose one of 21 AI specialist workspaces. Each routes requests through JARVIS’s shared brain with domain-specific operating rules; external services still require their own connections and permissions.", color = Color(0xFF9DB0C7), style = MaterialTheme.typography.bodySmall)
+                    JarvisSections.all.forEachIndexed { index, section ->
+                        Card(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(18.dp), colors = androidx.compose.material3.CardDefaults.cardColors(containerColor = Color(0xFF111F32))) {
+                            Row(modifier = Modifier.fillMaxWidth().padding(14.dp), horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
+                                Surface(shape = RoundedCornerShape(12.dp), color = Color(0xFF18354A)) {
+                                    Text(String.format(Locale.US, "%02d", index + 1), modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp), color = Color(0xFF78DDE8), style = MaterialTheme.typography.titleSmall)
+                                }
+                                Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                                    Text(section.name, color = Color(0xFFEAF4FF), style = MaterialTheme.typography.titleSmall)
+                                    Text(section.description, color = Color(0xFF9DB0C7), style = MaterialTheme.typography.bodySmall)
+                                    Text(if (section.status == SectionStatus.FOUNDATION) "CONNECTED FOUNDATION" else "AI SPECIALIST WORKSPACE • SHARED BRAIN", color = if (section.status == SectionStatus.FOUNDATION) Color(0xFF78E0C2) else Color(0xFFFFD28B), style = MaterialTheme.typography.labelSmall)
+                                }
+                                TextButton(onClick = { activeSectionId = section.id; selectedTab = "section" }) { Text("Open") }
+                            }
+                        }
+                    }
+                }
+
+                if (selectedTab == "section") {
+                    val section = activeSectionId?.let { JarvisSections.find(it) }
+                    if (section == null) {
+                        Text("Choose a section from the 21-section hub.", color = Color(0xFF9DB0C7))
+                        OutlinedButton(onClick = { selectedTab = "modules" }) { Text("Back to sections") }
+                    } else {
+                        OutlinedButton(onClick = { selectedTab = "modules"; scope.launch { sectionHubScrollState.scrollTo(0) } }, shape = RoundedCornerShape(14.dp)) { Text("← All 21 sections") }
+                        Card(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(24.dp), colors = androidx.compose.material3.CardDefaults.cardColors(containerColor = Color(0xFF11243A))) {
+                            Column(Modifier.fillMaxWidth().padding(18.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                                Text("SPECIALIST WORKSPACE", color = Color(0xFF78DDE8), style = MaterialTheme.typography.labelSmall)
+                                Text(section.name, color = Color(0xFFEAF4FF), style = MaterialTheme.typography.headlineSmall)
+                                Text(section.description, color = Color(0xFFB5C7D9), style = MaterialTheme.typography.bodyMedium)
+                                Surface(shape = RoundedCornerShape(50.dp), color = if (section.status == SectionStatus.FOUNDATION) Color(0xFF123D39) else Color(0xFF493719)) {
+                                    Text(if (section.status == SectionStatus.FOUNDATION) "FOUNDATION CONNECTED" else "AI SPECIALIST WORKSPACE • SHARED BRAIN", modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp), color = if (section.status == SectionStatus.FOUNDATION) Color(0xFF78E0C2) else Color(0xFFFFD28B), style = MaterialTheme.typography.labelSmall)
+                                }
+                                Text("QUICK ACTIONS", color = Color(0xFF78DDE8), style = MaterialTheme.typography.labelMedium)
+                                JarvisSections.actions(section.id).forEach { action ->
+                                    OutlinedButton(onClick = { selectedTab = "chat"; input = action }, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(14.dp)) {
+                                        Text(action, modifier = Modifier.fillMaxWidth())
+                                    }
+                                }
+                                Button(onClick = { selectedTab = "chat"; input = "Work in the " + section.name + " section. " + section.description + " Help me with the next practical task." }, modifier = Modifier.fillMaxWidth().height(52.dp), shape = RoundedCornerShape(16.dp)) {
+                                    Text("Continue with JARVIS  →")
+                                }
+                            }
+                        }
+                        Text("Section actions use JARVIS's shared assistant and existing permissions. A screen does not imply that an external service or background automation is already connected.", color = Color(0xFF9DB0C7), style = MaterialTheme.typography.bodySmall)
                     }
                 }
 
@@ -873,9 +1053,32 @@ private fun JarvisApp(
                             modifier = Modifier.fillMaxWidth(),
                             enabled = !isThinking && !isRunningWebAgent,
                             shape = RoundedCornerShape(14.dp)
-                        ) { Text("🌐  TinyFish Web Agent") }
+                        ) { Text("🌐  Browser & Research") }
                     }
                 }
+                Surface(shape = RoundedCornerShape(20.dp), color = Color(0xFF101D2F), modifier = Modifier.fillMaxWidth()) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(horizontal = 3.dp, vertical = 4.dp),
+                        horizontalArrangement = Arrangement.Start,
+                        verticalAlignment = androidx.compose.ui.Alignment.CenterVertically
+                    ) {
+                        listOf("home" to "Home", "chat" to "Chat", "modules" to "21 Sections", "agent" to "Agent", "library" to "Library", "tasks" to "Memory", "settings" to "Settings").forEach { (tab, label) ->
+                            TextButton(onClick = {
+                                selectedTab = tab
+                                if (tab == "modules" || tab == "section" || tab == "chat") {
+                                    scope.launch { sectionHubScrollState.scrollTo(0) }
+                                }
+                                showSettings = tab == "settings"
+                                showRemember = tab == "tasks"
+                                if (tab == "tasks") memoryEntries = memory.load()
+                                if (tab == "agent") agentTasks = taskEngine.load()
+                            }) {
+                                Text(label, color = if (selectedTab == tab) Color(0xFF77E5EE) else Color(0xFF8FA5BF), style = MaterialTheme.typography.labelMedium)
+                            }
+                        }
+                    }
+                }
+
             }
         }
     }
@@ -883,10 +1086,10 @@ private fun JarvisApp(
     if (showWebAgentDialog) {
         AlertDialog(
             onDismissRequest = { if (!isRunningWebAgent) showWebAgentDialog = false },
-            title = { Text("TinyFish Web Agent") },
+            title = { Text("Browser & Research") },
             text = {
                 Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                    Text("Give JARVIS a website and a specific browser task. Review the task before running it; some browser actions may submit forms or change website data.")
+                    Text("Give JARVIS a public website and a research goal. Browser page reading is read-only. Website submission, sending, publishing, deleting, purchasing and account changes are blocked until action-specific approvals exist.")
                     OutlinedTextField(
                         value = webAgentUrl,
                         onValueChange = { webAgentUrl = it },
@@ -899,7 +1102,7 @@ private fun JarvisApp(
                         value = webAgentGoal,
                         onValueChange = { webAgentGoal = it },
                         modifier = Modifier.fillMaxWidth(),
-                        label = { Text("What should TinyFish do?") },
+                        label = { Text("What should JARVIS research?") },
                         placeholder = { Text("Find the public pricing plans and summarize them. Do not purchase anything.") },
                         minLines = 3,
                         maxLines = 5
@@ -914,7 +1117,7 @@ private fun JarvisApp(
                     enabled = !isRunningWebAgent && webAgentUrl.startsWith("http") && webAgentGoal.isNotBlank(),
                     onClick = {
                         isRunningWebAgent = true
-                        webAgentStatus = "Connecting to TinyFish…"
+                        webAgentStatus = "Connecting to browser research…"
                         scope.launch {
                             val result = withContext(Dispatchers.IO) {
                                 runCatching {
@@ -925,7 +1128,7 @@ private fun JarvisApp(
                             result.fold(
                                 onSuccess = { output ->
                                     showWebAgentDialog = false
-                                    record("TinyFish browser task: ${webAgentGoal.trim()}", output)
+                                    record("Browser research task: ${webAgentGoal.trim()}", output)
                                 },
                                 onFailure = { error ->
                                     webAgentStatus = "Task failed: ${error.message ?: "Unknown error"}"
@@ -960,6 +1163,34 @@ private fun JarvisApp(
             },
             dismissButton = {
                 OutlinedButton(onClick = { pendingTapTarget = null; record("tap $target", "Denied. No screen interaction was performed.") }) { Text("Deny") }
+            }
+        )
+    }
+
+    pendingTaskApproval?.let { task ->
+        AlertDialog(
+            onDismissRequest = { pendingTaskApproval = null },
+            title = { Text("JARVIS approval checkpoint") },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Text("Task: ${task.title}")
+                    Text("This task looks consequential. Approving allows JARVIS to prepare research, a plan or a draft in the background only. It does not authorize sending, publishing, deleting, purchasing, calling, changing settings or modifying external data. Those actions need a separate connected tool and a fresh action-specific approval.")
+                }
+            },
+            confirmButton = {
+                Button(onClick = {
+                    pendingTaskApproval = null
+                    taskEngine.updateStatus(task.id, JarvisTaskStatus.IN_PROGRESS)
+                    JarvisTaskScheduler.enqueue(context, task.id)
+                    agentTasks = taskEngine.load()
+                }) { Text("Approve preparation once") }
+            },
+            dismissButton = {
+                OutlinedButton(onClick = {
+                    pendingTaskApproval = null
+                    taskEngine.updateStatus(task.id, JarvisTaskStatus.PLANNED, "User declined the approval checkpoint.")
+                    agentTasks = taskEngine.load()
+                }) { Text("Deny") }
             }
         )
     }
@@ -1099,7 +1330,7 @@ private fun JarvisCore(isThinking: Boolean) {
 }
 
 /** Prepares an action only. It never launches an Intent. */
-private fun resolvePhoneAction(
+internal fun resolvePhoneAction(
     context: Context,
     rawCommand: String
 ): Pair<PendingPhoneAction?, String>? {
@@ -1133,6 +1364,38 @@ private fun resolvePhoneAction(
     }
     if (command == "camera" || command == "open camera") {
         return approval("Open camera", "JARVIS will open the camera. It will not take a photo automatically.", Intent(MediaStore.ACTION_IMAGE_CAPTURE))
+    }
+    if (command == "compose email" || command == "draft email") {
+        return approval(
+            "Open an email draft",
+            "JARVIS will open your email composer. Review the recipient and content yourself; nothing is sent automatically.",
+            Intent(Intent.ACTION_SENDTO, Uri.parse("mailto:"))
+        )
+    }
+    if (command.startsWith("draft whatsapp ")) {
+        val draft = rawCommand.substringAfter("draft whatsapp", "").trim()
+        if (draft.isBlank()) return null to "Tell me what message to prepare after 'draft whatsapp'."
+        if (context.packageManager.getLaunchIntentForPackage("com.whatsapp") == null) {
+            return null to "WhatsApp is not available on this device."
+        }
+        val intent = Intent(Intent.ACTION_SEND).apply {
+            type = "text/plain"
+            setPackage("com.whatsapp")
+            putExtra(Intent.EXTRA_TEXT, draft.take(4000))
+        }
+        return approval(
+            "Prepare a WhatsApp message",
+            "JARVIS will open a WhatsApp draft containing your text. You must review and press Send yourself.",
+            intent
+        )
+    }
+    if (command.startsWith("call ") && command.removePrefix("call ").matches(Regex("[+0-9() .-]{4,24}"))) {
+        val number = rawCommand.substringAfter("call ").trim()
+        return approval(
+            "Open the phone dialer",
+            "JARVIS will place the number in the dialer. It will not place the call.",
+            Intent(Intent.ACTION_DIAL, Uri.parse("tel:" + Uri.encode(number)))
+        )
     }
     if (command == "call" || command.contains("open phone") || command.contains("dialer")) {
         return approval("Open phone dialer", "JARVIS will open the dialer, not place a call.", Intent(Intent.ACTION_DIAL))

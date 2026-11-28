@@ -5,3 +5,8 @@ local.properties
 /build/
 /app/build/
 *.iml
+
+# Android release-signing material: never commit private keys or local signing config
+*.jks
+*.keystore
+key.properties
