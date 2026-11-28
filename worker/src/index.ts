@@ -275,8 +275,8 @@ async function askOpenRouter(env: Env, system: string, prompt: string): Promise<
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
     const url = new URL(request.url);
-    if (url.pathname.startsWith("/v1/device/")) return handleDeviceBridge(request, url, env);
     if (request.method === "OPTIONS") return new Response(null, { status: 204, headers: cors });
+    if (url.pathname.startsWith("/v1/device/")) return handleDeviceBridge(request, url, env);
     if (request.method === "GET" && url.pathname === "/health") {
       return json({
         ok: true,
