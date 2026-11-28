@@ -159,6 +159,29 @@ class JarvisLaunchTest {
     }
 
     @Test
+    fun autonomousAgentCreatesGroupedMultiStepPlans() {
+        val testContext = InstrumentationRegistry.getInstrumentation().targetContext
+        testContext.getSharedPreferences("jarvis_task_ledger", Context.MODE_PRIVATE)
+            .edit().clear().commit()
+
+        val engine = JarvisTaskEngine(testContext)
+        val steps = engine.createPlan(
+            "Prepare a research report",
+            listOf("1. Define the research question", "2. Find primary sources", "- Compare evidence", "3. Draft findings")
+        )
+
+        assertEquals(4, steps.size)
+        assertEquals(1, steps.mapNotNull { it.planId }.distinct().size)
+        assertTrue(steps.all { it.status == JarvisTaskStatus.PLANNED })
+        assertTrue(steps.all { it.notes.contains("Prepare a research report") })
+        assertEquals(steps.map { it.id }.toSet(), engine.load().map { it.id }.toSet())
+
+        val started = engine.updateStatus(steps.first().id, JarvisTaskStatus.IN_PROGRESS)
+        assertEquals(JarvisTaskStatus.IN_PROGRESS, started?.status)
+        assertEquals(JarvisTaskStatus.PLANNED, engine.load().last().status)
+    }
+
+    @Test
     fun allTwentyOneSpecialistsHaveUniqueIdsActionsAndOperatingRules() {
         val sections = JarvisSections.all
         assertEquals("JARVIS must expose exactly 21 specialist sections", 21, sections.size)
