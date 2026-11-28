@@ -158,6 +158,22 @@ class JarvisLaunchTest {
         assertTrue(JarvisTaskEngine(testContext).load().isEmpty())
     }
 
+    @Test
+    fun allTwentyOneSpecialistsHaveUniqueIdsActionsAndOperatingRules() {
+        val sections = JarvisSections.all
+        assertEquals("JARVIS must expose exactly 21 specialist sections", 21, sections.size)
+        assertEquals("Every section ID must be unique", sections.size, sections.map { it.id }.toSet().size)
+
+        sections.forEach { section ->
+            assertTrue("Missing actions for ${section.id}", JarvisSections.actions(section.id).size >= 3)
+            assertTrue(
+                "Missing specialist operating rules for ${section.id}",
+                JarvisSections.systemInstruction(section.id).isNotBlank()
+            )
+            assertEquals(section, JarvisSections.find(section.id))
+        }
+    }
+
     private fun assertNotNullAndGet(value: String?): String {
         assertNotNull("Encrypted ciphertext should exist after save", value)
         return requireNotNull(value)
