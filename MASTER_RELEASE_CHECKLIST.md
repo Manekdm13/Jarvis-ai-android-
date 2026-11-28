@@ -63,7 +63,7 @@ A feature is complete only when its implementation is merged, tests pass, its pe
 
 
 ### 7. Side-income agent (required master subsystem)
-- [ ] Implement the requirements in [SIDE_INCOME_AGENT_REQUIREMENTS.md](SIDE_INCOME_AGENT_REQUIREMENTS.md): Pakistan-focused discovery of surveys, research studies, app testing, AI/data tasks, transcription, web research, and other legitimate micro-work.
+- [ ] Implement the requirements in [SIDE_INCOME_AGENT_REQUIREMENTS.md](SIDE_INCOME_AGENT_REQUIREMENTS.md): broad search-engine discovery of USD-paying microtasks, paid research, QA/testing, AI/data work, remote part-time/contract jobs, tutoring, digital products, creator monetization, affiliate programs, e-commerce, and other legitimate online income opportunities available to Pakistan residents.
 - [ ] Verify each platform's current Pakistan eligibility, automation rules, and actual payout options before recommending or executing tasks.
 - [ ] Support the user's available payout routes (JazzCash, Easypaisa, Payoneer, Pakistani bank account) where each platform offers them; do not imply universal platform support.
 - [ ] Add opportunity ranking by expected net hourly return, reliability, eligibility, risk, withdrawal threshold, fees, and payment timing.
