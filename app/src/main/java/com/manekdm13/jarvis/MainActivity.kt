@@ -227,6 +227,9 @@ private fun JarvisApp(
     val taskEngine = remember(context) { JarvisTaskEngine(context.applicationContext) }
     var agentTasks by remember(taskEngine) { mutableStateOf(taskEngine.load()) }
     var newTaskTitle by remember { mutableStateOf("") }
+    var planGoal by remember { mutableStateOf("") }
+    var isPlanning by remember { mutableStateOf(false) }
+    var planStatus by remember { mutableStateOf("") }
     var showRemember by remember { mutableStateOf(false) }
     var rememberSearch by remember { mutableStateOf("") }
     var memoryEntries by remember(memory) { mutableStateOf(memory.load()) }
@@ -544,6 +547,57 @@ private fun JarvisApp(
                                     agentTasks = taskEngine.load()
                                 }
                             }, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(14.dp)) { Text("Save task") }
+                            OutlinedTextField(
+                                value = planGoal,
+                                onValueChange = { planGoal = it },
+                                modifier = Modifier.fillMaxWidth(),
+                                label = { Text("Give JARVIS a goal to plan") },
+                                placeholder = { Text("e.g. Build a fully sourced scholarship shortlist") },
+                                minLines = 2,
+                                maxLines = 3
+                            )
+                            Button(
+                                enabled = planGoal.isNotBlank() && gatewayUrl.isNotBlank() && !isPlanning,
+                                onClick = {
+                                    val goal = planGoal.trim()
+                                    isPlanning = true
+                                    planStatus = "JARVIS is breaking the goal into actionable steps…"
+                                    scope.launch {
+                                        val result = withContext(Dispatchers.IO) {
+                                            runCatching {
+                                                AiGatewayClient.reply(
+                                                    gatewayUrl,
+                                                    gatewayToken,
+                                                    "Create a practical execution plan for this goal: $goal. Return 4 to 8 concrete, ordered, independently trackable steps. Output ONLY a numbered list, one action per line. Do not claim to perform any action, access private accounts, send messages, spend money, or change data. Mark steps that will later require user approval in the wording.",
+                                                    "You are JARVIS's task planner. Plans must be realistic, testable, and safe. Do not invent completed work."
+                                                )
+                                            }
+                                        }
+                                        result.onSuccess { response ->
+                                            val steps = response.lines().filter {
+                                                it.trim().matches(Regex("^(?:[0-9]+[.)]|[-*•])\\s+.+"))
+                                            }
+                                            runCatching { taskEngine.createPlan(goal, steps) }
+                                                .onSuccess { created ->
+                                                    planStatus = "Created " + created.size + " trackable steps. Nothing has been executed yet."
+                                                    planGoal = ""
+                                                    agentTasks = taskEngine.load()
+                                                }
+                                                .onFailure { error ->
+                                                    planStatus = "Couldn't save the plan: " + (error.message ?: "invalid plan response")
+                                                }
+                                        }.onFailure { error ->
+                                            planStatus = "Planning failed: " + (error.message ?: "AI gateway unavailable")
+                                        }
+                                        isPlanning = false
+                                    }
+                                },
+                                modifier = Modifier.fillMaxWidth(),
+                                shape = RoundedCornerShape(14.dp)
+                            ) { Text(if (isPlanning) "Planning…" else "Create AI task plan") }
+                            if (planStatus.isNotBlank()) {
+                                Text(planStatus, color = Color(0xFF9DB0C7), style = MaterialTheme.typography.bodySmall)
+                            }
                         }
                     }
                     if (agentTasks.isEmpty()) {
