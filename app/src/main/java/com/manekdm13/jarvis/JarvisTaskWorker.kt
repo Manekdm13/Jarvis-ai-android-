@@ -50,7 +50,8 @@ internal class JarvisTaskWorker(
         val localConfigured = ollamaUrl.isNotBlank() && ollamaModel.isNotBlank()
         val cloudConfigured = gatewayUrl.isNotBlank() && token.isNotBlank()
         if ((inferenceMode == JarvisInferenceRouter.MODE_CLOUD && !cloudConfigured) ||
-            (inferenceMode != JarvisInferenceRouter.MODE_CLOUD && !localConfigured)) {
+            (inferenceMode != JarvisInferenceRouter.MODE_CLOUD && !localConfigured) ||
+            (webUrl.isNotBlank() && !cloudConfigured)) {
             return@withContext Result.failure(
                 Data.Builder()
                     .putString(KEY_TASK_ID, taskId)
