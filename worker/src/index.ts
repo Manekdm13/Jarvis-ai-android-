@@ -1,6 +1,8 @@
 import puppeteer from "@cloudflare/puppeteer";
 
 export interface Env {
+  DEVICE_DB?: D1Like;
+  JARVIS_DEVICE_TOKEN?: string;
   BROWSER?: any;
   JARVIS_AI_KEY?: string;
   GEMINI_API_KEY?: string;
@@ -18,6 +20,99 @@ export interface Env {
 
 type ChatRequest = { message?: unknown; history?: unknown };
 type Provider = "gemini" | "openrouter" | "groq" | "workers_ai";
+
+type D1StatementLike = {
+  bind(...values: unknown[]): D1StatementLike;
+  run(): Promise<unknown>;
+  first<T = Record<string, unknown>>(columnName?: string): Promise<T | null>;
+  all<T = Record<string, unknown>>(): Promise<{ results: T[] }>;
+};
+type D1Like = { prepare(query: string): D1StatementLike };
+
+const DEVICE_EVENTS = new Set([
+  "agent_started", "agent_stopped", "heartbeat", "task_started",
+  "task_finished", "task_failed", "poll_error",
+]);
+
+function validDeviceId(value: unknown): value is string {
+  return typeof value === "string" && /^[a-zA-Z0-9._-]{1,64}$/.test(value);
+}
+
+async function readSmallJson(request: Request, maxBytes = 12000): Promise<Record<string, unknown> | null> {
+  const raw = await request.text();
+  if (new TextEncoder().encode(raw).byteLength > maxBytes) return null;
+  try {
+    const parsed: unknown = JSON.parse(raw);
+    return parsed && typeof parsed === "object" && !Array.isArray(parsed)
+      ? parsed as Record<string, unknown> : null;
+  } catch {
+    return null;
+  }
+}
+
+async function handleDeviceBridge(request: Request, url: URL, env: Env): Promise<Response> {
+  if (!url.pathname.startsWith("/v1/device/")) return json({ error: "Not found" }, 404);
+  if (!env.DEVICE_DB || !cleanSecret(env.JARVIS_DEVICE_TOKEN)) {
+    return json({ error: "Device bridge is not configured." }, 503);
+  }
+  const authorization = request.headers.get("Authorization") || "";
+  const provided = authorization.startsWith("Bearer ") ? cleanSecret(authorization.slice(7)) : "";
+  if (!tokenMatches(provided, cleanSecret(env.JARVIS_DEVICE_TOKEN))) {
+    return json({ error: "Unauthorized" }, 401);
+  }
+
+  if (request.method === "POST" && url.pathname === "/v1/device/heartbeat") {
+    const body = await readSmallJson(request, 8000);
+    if (!body || !validDeviceId(body.device_id)) return json({ error: "Invalid heartbeat payload." }, 400);
+    const deviceId = body.device_id;
+    const name = cleanText(body.name, 80) || "Termux device";
+    const now = new Date().toISOString();
+    const details = JSON.stringify({
+      agent_version: cleanText(body.agent_version, 32),
+      branch: cleanText(body.branch, 120),
+      commit: cleanText(body.commit, 64),
+      platform: cleanText(body.platform, 80),
+    });
+    await env.DEVICE_DB.prepare(
+      "INSERT INTO devices (device_id, name, token_hash, created_at, last_seen_at, revoked_at) VALUES (?, ?, ?, ?, ?, NULL) ON CONFLICT(device_id) DO UPDATE SET name=excluded.name, last_seen_at=excluded.last_seen_at"
+    ).bind(deviceId, name, await tokenFingerprint(provided), now, now).run();
+    await env.DEVICE_DB.prepare(
+      "INSERT INTO task_events (id, device_id, event_type, task_id, details_json, created_at) VALUES (?, ?, 'heartbeat', NULL, ?, ?)"
+    ).bind(crypto.randomUUID(), deviceId, details, now).run();
+    return json({ ok: true, device_id: deviceId, received_at: now });
+  }
+
+  if (request.method === "POST" && url.pathname === "/v1/device/event") {
+    const body = await readSmallJson(request, 12000);
+    if (!body || !validDeviceId(body.device_id) || typeof body.event_type !== "string" ||
+        !DEVICE_EVENTS.has(body.event_type)) return json({ error: "Invalid event payload." }, 400);
+    const taskId = cleanText(body.task_id, 80) || null;
+    const details = body.details && typeof body.details === "object" && !Array.isArray(body.details)
+      ? JSON.stringify(body.details).slice(0, 8000) : "{}";
+    const now = new Date().toISOString();
+    await env.DEVICE_DB.prepare(
+      "INSERT INTO task_events (id, device_id, event_type, task_id, details_json, created_at) VALUES (?, ?, ?, ?, ?, ?)"
+    ).bind(crypto.randomUUID(), body.device_id, body.event_type, taskId, details, now).run();
+    await env.DEVICE_DB.prepare(
+      "UPDATE devices SET last_seen_at = ? WHERE device_id = ?"
+    ).bind(now, body.device_id).run();
+    return json({ ok: true, received_at: now });
+  }
+
+  if (request.method === "GET" && url.pathname === "/v1/device/status") {
+    const deviceId = url.searchParams.get("device_id") || "";
+    if (!validDeviceId(deviceId)) return json({ error: "A valid device_id is required." }, 400);
+    const device = await env.DEVICE_DB.prepare(
+      "SELECT device_id, name, created_at, last_seen_at, revoked_at FROM devices WHERE device_id = ?"
+    ).bind(deviceId).first();
+    const events = await env.DEVICE_DB.prepare(
+      "SELECT id, event_type, task_id, details_json, created_at FROM task_events WHERE device_id = ? ORDER BY created_at DESC LIMIT 25"
+    ).bind(deviceId).all();
+    return json({ ok: true, device, events: events.results });
+  }
+
+  return json({ error: "Not found" }, 404);
+}
 
 const cors = {
   "Access-Control-Allow-Origin": "*",
@@ -180,6 +275,7 @@ async function askOpenRouter(env: Env, system: string, prompt: string): Promise<
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
     const url = new URL(request.url);
+    if (url.pathname.startsWith("/v1/device/")) return handleDeviceBridge(request, url, env);
     if (request.method === "OPTIONS") return new Response(null, { status: 204, headers: cors });
     if (request.method === "GET" && url.pathname === "/health") {
       return json({
