@@ -13,6 +13,11 @@ const env = (extra = {}) => ({
   CHAT_LIMITER: limiter,
   ...extra,
 });
+const brainRequest = (body, bearer = token) => new Request("https://jarvis.example/v1/brain", {
+  method: "POST",
+  headers: { "Content-Type": "application/json", ...(bearer ? { Authorization: `Bearer ${bearer}` } : {}) },
+  body: JSON.stringify(body),
+});
 const request = (body, bearer = token) => new Request("https://jarvis.example/v1/chat", {
   method: "POST",
   headers: { "Content-Type": "application/json", ...(bearer ? { Authorization: `Bearer ${bearer}` } : {}) },
@@ -350,4 +355,70 @@ test("gateway token accepts harmless surrounding whitespace from secret paste", 
   const wrappedToken = `  \n${token}\r\n  `;
   const res = await worker.fetch(request({ message: "hello" }), env({ JARVIS_APP_TOKEN: wrappedToken }));
   assert.equal(res.status, 200);
+});
+
+
+test("JARVIS cloud brain owns plan, execution, review and returns an audited result", async () => {
+  const original = globalThis.fetch;
+  const outputs = [
+    '{"steps":[{"title":"Research","objective":"Gather relevant facts"},{"title":"Synthesize","objective":"Compare findings and produce recommendation"}]}',
+    "Found three relevant facts from supplied context.",
+    "Compared the findings and prepared a recommendation.",
+    "[JARVIS_REVIEW: COMPLETE] The objective is satisfied. Final recommendation: choose option A because the evidence supports it.",
+  ];
+  let calls = 0;
+  globalThis.fetch = async () => {
+    const text = outputs[calls++] || "Unexpected model call";
+    return response({ model: "gemini-test-model", status: "completed", steps: [{ type: "model_output", content: [{ type: "text", text }] }] });
+  };
+  try {
+    const res = await worker.fetch(brainRequest({ message: "Research and recommend the best option.", history: "Context supplied by the user." }), env({
+      OPENROUTER_API_KEY: undefined, GROQ_API_KEY: undefined, AI: undefined,
+    }));
+    const data = await res.json();
+    assert.equal(res.status, 200);
+    assert.equal(data.brain, "jarvis-cloud-brain-v1");
+    assert.equal(data.strategy, "plan-execute-review-repair");
+    assert.equal(data.steps, 2);
+    assert.equal(data.status, "reviewed");
+    assert.match(data.reply, /Final recommendation/);
+    assert.deepEqual(data.providers, ["gemini:gemini-test-model"]);
+    assert.equal(calls, 4);
+  } finally { globalThis.fetch = original; }
+});
+
+test("JARVIS cloud brain performs at most one repair pass after an explicit review verdict", async () => {
+  const original = globalThis.fetch;
+  const outputs = [
+    '{"steps":[{"title":"Draft","objective":"Prepare a useful answer"}]}',
+    "Initial draft with an omitted comparison.",
+    "[JARVIS_REVIEW: NEEDS_REPAIR] The comparison is missing.",
+    "Repaired answer including the missing comparison.",
+  ];
+  let calls = 0;
+  globalThis.fetch = async () => {
+    const text = outputs[calls++] || "Unexpected extra call";
+    return response({ model: "gemini-test-model", status: "completed", steps: [{ type: "model_output", content: [{ type: "text", text }] }] });
+  };
+  try {
+    const res = await worker.fetch(brainRequest({ message: "Prepare a comparison." }), env({
+      OPENROUTER_API_KEY: undefined, GROQ_API_KEY: undefined, AI: undefined,
+    }));
+    const data = await res.json();
+    assert.equal(res.status, 200);
+    assert.equal(data.repaired, true);
+    assert.match(data.reply, /Repaired answer/);
+    assert.equal(calls, 4);
+  } finally { globalThis.fetch = original; }
+});
+
+test("JARVIS cloud brain rejects unauthenticated requests before model calls", async () => {
+  const original = globalThis.fetch;
+  let calls = 0;
+  globalThis.fetch = async () => { calls++; return response({}); };
+  try {
+    const res = await worker.fetch(brainRequest({ message: "Do work." }, null), env());
+    assert.equal(res.status, 401);
+    assert.equal(calls, 0);
+  } finally { globalThis.fetch = original; }
 });
