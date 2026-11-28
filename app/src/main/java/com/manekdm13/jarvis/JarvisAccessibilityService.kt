@@ -74,7 +74,7 @@ class JarvisAccessibilityService : AccessibilityService() {
             ?: "Accessibility access is not enabled. Enable JARVIS in Android Settings → Accessibility."
         fun tapText(label: String): Boolean = instance?.clickText(label) ?: false
         fun scroll(forward: Boolean): Boolean = instance?.scroll(forward) ?: false
-        fun globalBack(): Boolean = instance?.performGlobalAction(GLOBAL_ACTION_BACK) ?: false
-        fun globalHome(): Boolean = instance?.performGlobalAction(GLOBAL_ACTION_HOME) ?: false
+        fun globalBack(): Boolean = instance?.performGlobalAction(AccessibilityService.GLOBAL_ACTION_BACK) ?: false
+        fun globalHome(): Boolean = instance?.performGlobalAction(AccessibilityService.GLOBAL_ACTION_HOME) ?: false
     }
 }
