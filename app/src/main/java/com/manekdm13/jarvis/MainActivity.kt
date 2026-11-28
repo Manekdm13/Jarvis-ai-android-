@@ -98,13 +98,34 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         tts = TextToSpeech(this) { status ->
-            if (status == TextToSpeech.SUCCESS) tts?.language = Locale.US
+            if (status == TextToSpeech.SUCCESS) {
+                val engine = tts ?: return@TextToSpeech
+                val language = Locale.US
+                engine.setLanguage(language)
+                // Prefer a clear, high-quality installed English voice over the engine's harsh default.
+                val preferredVoice = engine.voices
+                    ?.filter { it.locale.language == language.language && it.locale.country == language.country }
+                    ?.sortedWith(compareByDescending<android.speech.tts.Voice> { it.quality }.thenBy { it.isNetworkConnectionRequired })
+                    ?.firstOrNull()
+                if (preferredVoice != null) engine.voice = preferredVoice
+                engine.setPitch(0.94f)
+                engine.setSpeechRate(0.96f)
+            }
         }
         setContent { JarvisApp(onSpeak = { speak(it) }) }
     }
 
     private fun speak(message: String) {
-        tts?.speak(message, TextToSpeech.QUEUE_FLUSH, null, "jarvis_reply")
+        val naturalSpeech = message
+            .replace(Regex("(?m)^\\s*[-•*]+\\s*"), "")
+            .replace(Regex("(?m)^\\s*\\d+[.)]\\s*"), "")
+            .replace(Regex("\\*{1,2}"), "")
+            .replace(Regex("(?m)^#{1,6}\\s*"), "")
+            .replace(Regex("\\s+"), " ")
+            .trim()
+        if (naturalSpeech.isNotBlank()) {
+            tts?.speak(naturalSpeech, TextToSpeech.QUEUE_FLUSH, null, "jarvis_reply")
+        }
     }
 
     override fun onDestroy() {
