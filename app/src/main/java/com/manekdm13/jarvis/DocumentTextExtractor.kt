@@ -1,7 +1,11 @@
 package com.manekdm13.jarvis
 
 import android.content.Context
+import android.graphics.Bitmap
+import android.graphics.Rect
+import android.graphics.pdf.PdfRenderer
 import android.net.Uri
+import android.os.ParcelFileDescriptor
 import com.google.android.gms.tasks.Tasks
 import com.google.mlkit.vision.common.InputImage
 import com.google.mlkit.vision.text.TextRecognition
@@ -9,26 +13,82 @@ import com.google.mlkit.vision.text.latin.TextRecognizerOptions
 import java.util.concurrent.TimeUnit
 
 /**
- * On-device OCR for an image explicitly selected by the user.
+ * On-device OCR for images and PDFs explicitly selected by the user.
  *
- * The extracted text stays in the app until the user reviews it and presses Send.
- * This class does not upload images or extracted text to any service.
+ * Extracted text stays in the app until the user reviews it and presses Send.
+ * This class does not upload source files or extracted text to any service.
  */
 internal object DocumentTextExtractor {
     fun extractImageText(context: Context, imageUri: Uri): String {
         val image = InputImage.fromFilePath(context, imageUri)
         val recognizer = TextRecognition.getClient(TextRecognizerOptions.DEFAULT_OPTIONS)
         return try {
-            val result = Tasks.await(recognizer.process(image), 45, TimeUnit.SECONDS)
-            result.text
-                .replace(Regex("[\\t ]+"), " ")
-                .replace(Regex("\\n{3,}"), "\\n\\n")
-                .trim()
-                .take(MAX_EXTRACTED_CHARS)
+            val result = Tasks.await(recognizer.process(image), OCR_TIMEOUT_SECONDS, TimeUnit.SECONDS)
+            normalize(result.text)
         } finally {
             recognizer.close()
         }
     }
 
+    fun extractPdfText(context: Context, pdfUri: Uri): String {
+        val descriptor = context.contentResolver.openFileDescriptor(pdfUri, "r")
+            ?: throw IllegalArgumentException("Android could not open the selected PDF.")
+        val recognizer = TextRecognition.getClient(TextRecognizerOptions.DEFAULT_OPTIONS)
+        val extractedPages = mutableListOf<String>()
+        try {
+            PdfRenderer(descriptor).use { renderer ->
+                if (renderer.pageCount == 0) {
+                    throw IllegalArgumentException("The selected PDF has no pages.")
+                }
+                val pagesToRead = minOf(renderer.pageCount, MAX_PDF_PAGES)
+                for (pageIndex in 0 until pagesToRead) {
+                    renderer.openPage(pageIndex).use { page ->
+                        val scale = minOf(1f, MAX_RENDER_DIMENSION.toFloat() / maxOf(page.width, page.height))
+                        val width = (page.width * scale).toInt().coerceAtLeast(1)
+                        val height = (page.height * scale).toInt().coerceAtLeast(1)
+                        val bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
+                        try {
+                            page.render(bitmap, Rect(0, 0, width, height), null, PdfRenderer.Page.RENDER_MODE_FOR_DISPLAY)
+                            val image = InputImage.fromBitmap(bitmap, 0)
+                            val text = Tasks.await(
+                                recognizer.process(image),
+                                OCR_TIMEOUT_SECONDS,
+                                TimeUnit.SECONDS
+                            ).text
+                            if (text.isNotBlank()) {
+                                extractedPages += "PAGE ${pageIndex + 1}\n${normalize(text)}"
+                            }
+                        } finally {
+                            bitmap.recycle()
+                        }
+                    }
+                    if (extractedPages.sumOf { it.length } >= MAX_EXTRACTED_CHARS) break
+                }
+            }
+        } finally {
+            recognizer.close()
+            descriptor.close()
+        }
+        val suffix = if (extractedPages.size < pdfPageCount(context, pdfUri)) {
+            "\n\n[Scanning stopped at the safe page or text limit.]"
+        } else ""
+        return (extractedPages.joinToString("\n\n") + suffix).take(MAX_EXTRACTED_CHARS)
+    }
+
+    private fun pdfPageCount(context: Context, uri: Uri): Int = runCatching {
+        context.contentResolver.openFileDescriptor(uri, "r")?.use { descriptor ->
+            PdfRenderer(descriptor).use { it.pageCount }
+        } ?: 0
+    }.getOrDefault(0)
+
+    private fun normalize(text: String): String = text
+        .replace(Regex("[\\t ]+"), " ")
+        .replace(Regex("\\n{3,}"), "\\n\\n")
+        .trim()
+        .take(MAX_EXTRACTED_CHARS)
+
     private const val MAX_EXTRACTED_CHARS = 18_000
+    private const val MAX_PDF_PAGES = 20
+    private const val MAX_RENDER_DIMENSION = 1800
+    private const val OCR_TIMEOUT_SECONDS = 45L
 }
