@@ -335,6 +335,10 @@ private fun JarvisApp(
                 record(question, JarvisPersonalLibrary.readTextFile(context, question.substringAfter("read file ").trim()))
                 return
             }
+            normalizedCommand.startsWith("open file ") -> {
+                record(question, JarvisPersonalLibrary.openFile(context, question.substringAfter("open file ").trim()))
+                return
+            }
             normalizedCommand in setOf("read screen", "what is on my screen", "what's on my screen", "inspect screen") -> {
                 record(question, JarvisAccessibilityService.readScreen())
                 return
