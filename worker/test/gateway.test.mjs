@@ -260,6 +260,40 @@ test("TinyFish web-agent route authenticates, forwards the task, and keeps the A
   } finally { globalThis.fetch = original; }
 });
 
+test("explicit automation mode uses TinyFish even when read-only Browser Run is available and guards final submission", async () => {
+  const original = globalThis.fetch;
+  let calledBody;
+  globalThis.fetch = async (_url, init) => {
+    calledBody = JSON.parse(String(init?.body));
+    return response({ status: "completed", result: { filled: 4 } });
+  };
+  try {
+    const secret = "server-only-tinyfish-secret";
+    const res = await worker.fetch(
+      new Request("https://jarvis.example/v1/web-agent", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({
+          url: "https://university.example/apply",
+          goal: "Fill my scholarship application.",
+          mode: "automation",
+          context: "Name: Example Applicant; Degree: Food Science",
+        }),
+      }),
+      env({ BROWSER: {}, TINYFISH_API_KEY: secret }),
+    );
+    const data = await res.json();
+    assert.equal(res.status, 200);
+    assert.equal(data.mode, "automation");
+    assert.equal(data.provider, "tinyfish");
+    assert.match(calledBody.goal, /Fill my scholarship application/);
+    assert.match(calledBody.goal, /USER-PROVIDED APPLICATION PROFILE/);
+    assert.match(calledBody.goal, /NEVER click final Submit/);
+    assert.match(calledBody.goal, /Do not enter passwords/);
+    assert.equal(JSON.stringify(data).includes(secret), false);
+  } finally { globalThis.fetch = original; }
+});
+
 test("TinyFish route fails clearly when its Worker secret is missing", async () => {
   const res = await worker.fetch(
     new Request("https://jarvis.example/v1/web-agent", {

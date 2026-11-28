@@ -1,0 +1,4 @@
+<resources>
+    <string name="app_name">JARVIS</string>
+    <string name="jarvis_accessibility_description">Allows JARVIS to perform visible UI actions you explicitly approve, such as tapping visible controls, scrolling, typing into a focused non-password field, and navigating back or home. JARVIS does not read passwords or hidden app databases.</string>
+</resources>

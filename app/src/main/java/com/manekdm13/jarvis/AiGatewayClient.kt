@@ -39,7 +39,27 @@ internal object AiGatewayClient {
                 localFingerprint == serverFingerprint -> "Saved app token MATCHES the Worker."
                 else -> "Saved app token DOES NOT MATCH the Worker. The 64-character token values must be identical."
             }
-            return "Android reached the gateway. $authStatus"
+            val providers = json.optJSONObject("providers")
+            val aiNames = listOf(
+                "Gemini" to "gemini",
+                "Groq" to "groq",
+                "OpenRouter" to "openrouter",
+                "Cloudflare Workers AI" to "workers_ai"
+            ).filter { (_, key) -> providers?.optBoolean(key, false) == true }
+                .map { it.first }
+            val researchNames = listOf(
+                "Cloudflare Browser" to "cloudflare_browser",
+                "TinyFish" to "tinyfish"
+            ).filter { (_, key) -> providers?.optBoolean(key, false) == true }
+                .map { it.first }
+            val capabilityStatus = buildString {
+                append("AI providers: ")
+                append(aiNames.takeIf { it.isNotEmpty() }?.joinToString() ?: "none configured")
+                append(". Web research: ")
+                append(researchNames.takeIf { it.isNotEmpty() }?.joinToString() ?: "none configured")
+                append(".")
+            }
+            return "Android reached the gateway. $authStatus $capabilityStatus"
         } finally {
             connection.disconnect()
         }
@@ -89,7 +109,7 @@ internal object AiGatewayClient {
     }
 
     /** Runs a user-requested browser task through the authenticated Worker; TinyFish credentials stay server-side. */
-    fun runWebAgent(baseUrl: String, token: String, targetUrl: String, goal: String): String {
+    fun runWebAgent(baseUrl: String, token: String, targetUrl: String, goal: String, mode: String = "research", context: String = ""): String {
         require(token.isNotBlank()) { "Enter your private gateway access token in JARVIS settings." }
         val cleanToken = token.replace(Regex("[\\s\\uFEFF]+"), "").removeSurrounding("\"").removeSurrounding("'")
         val cleanBase = baseUrl.trim().trimEnd('/')
@@ -99,7 +119,7 @@ internal object AiGatewayClient {
         }
         require(goal.isNotBlank()) { "Describe the browser task first." }
         val endpoint = if (cleanBase.endsWith("/v1/web-agent")) cleanBase else "$cleanBase/v1/web-agent"
-        val payload = JSONObject().put("url", targetUrl.trim()).put("goal", goal.trim())
+        val payload = JSONObject().put("url", targetUrl.trim()).put("goal", goal.trim()).put("mode", mode).put("context", context.take(10_000))
         val connection = (URL(endpoint).openConnection() as HttpURLConnection).apply {
             requestMethod = "POST"
             connectTimeout = 30_000

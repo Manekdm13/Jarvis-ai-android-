@@ -11,8 +11,8 @@ permissions:
   contents: read
 
 concurrency:
-  group: jarvis-android-ci-${{ github.event.pull_request.number || github.ref }}-${{ github.sha }}
-  cancel-in-progress: false
+  group: jarvis-android-ci-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
 
 jobs:
   worker-typecheck:
@@ -59,15 +59,15 @@ jobs:
         uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: "8.13"
-      - name: Build debug APK with actionable diagnostics
+      - name: Build debug APK and run JVM unit tests
         shell: bash
         run: |
           set +e
-          gradle assembleDebug --no-daemon --stacktrace --info 2>&1 | tee app-build.log
+          gradle assembleDebug testDebugUnitTest --no-daemon --stacktrace --info 2>&1 | tee app-build.log
           build_status=${PIPESTATUS[0]}
           if [ "$build_status" -ne 0 ]; then
-            echo "## Android build failure details" >> "$GITHUB_STEP_SUMMARY"
-            grep -E "e: |error:|What went wrong:|Execution failed|Unresolved reference|Could not resolve|failed to" app-build.log | tail -n 80 | tee -a "$GITHUB_STEP_SUMMARY" || true
+            echo "## Android build or unit-test failure details" >> "$GITHUB_STEP_SUMMARY"
+            grep -E "e: |error:|What went wrong:|Execution failed|Unresolved reference|Could not resolve|failed to|FAILED|tests completed" app-build.log | tail -n 100 | tee -a "$GITHUB_STEP_SUMMARY" || true
             exit "$build_status"
           fi
       - name: Upload Android build diagnostics
@@ -127,9 +127,9 @@ jobs:
           emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim
           disable-animations: true
           script: |
-            bash -lc 'set -euo pipefail; mkdir -p artifacts/emulator; timeout 120s adb wait-for-device; for attempt in $(seq 1 60); do booted="$(adb shell getprop sys.boot_completed 2>/dev/null | tr -d "\\r" || true)"; if [ "$booted" = "1" ]; then break; fi; sleep 5; done; test "$(adb shell getprop sys.boot_completed | tr -d "\\r")" = "1"; adb devices -l; gradle connectedDebugAndroidTest --no-daemon --stacktrace --info'
+            gradle testDebugUnitTest connectedDebugAndroidTest --no-daemon --stacktrace --info --max-workers=2
 
-      - name: Capture runner diagnostics if emulator action failed before test script
+      - name: Capture runner diagnostics if emulator action failed
         if: always()
         timeout-minutes: 3
         run: |
