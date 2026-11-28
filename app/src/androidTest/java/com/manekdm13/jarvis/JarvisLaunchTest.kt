@@ -40,7 +40,7 @@ class JarvisLaunchTest {
         composeRule.waitForIdle()
         composeRule.onNodeWithText("AI gateway URL").assertIsDisplayed()
         composeRule.onNodeWithText("Private gateway token").assertIsDisplayed()
-        composeRule.onNodeWithText("Test connection").assertIsDisplayed()
+        composeRule.onNodeWithText("Test gateway connection").assertIsDisplayed()
     }
 
     @Test
