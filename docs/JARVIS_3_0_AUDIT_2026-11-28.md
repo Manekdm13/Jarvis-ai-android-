@@ -10,8 +10,8 @@
 - Android gateway client uses HTTPS, a bearer token, connection/read timeouts, and JSON responses.
 - Provider keys are expected to remain on the Cloudflare Worker; Android stores the app gateway token through SecureTokenStore.
 - Conversation memory and opt-in profile memory use encrypted app-private stores backed by Android Keystore (not Room at this point).
-- Task engine persists task records and supports plan grouping and approval-waiting state. A persistent task ledger is not by itself proof of an autonomous tool executor.
-- Phone actions are allowlisted Android intents and require approval in the UI.
+- Task ledger is encrypted with an Android Keystore AES-GCM key and migrates the legacy plaintext v1 ledger on first read. WorkManager runs bounded, network-constrained research/reasoning/drafting tasks using opaque task IDs, unique work, retries, cancellation and restart recovery. The worker does not execute external actions.
+- Phone actions are allowlisted Android intents and require per-action approval in the UI. Email composition, WhatsApp draft handoff (when installed), and dialer handoff are draft/open flows; JARVIS does not press Send or place calls.
 - Accessibility and notification listener services are declared; the owner must enable them in Android settings.
 - File access uses the Android document-tree picker and media permissions that vary by OS version.
 - All 21 specialist entries have unique IDs, actions, and system instructions. Fourteen non-foundation areas are specialist AI workspaces using the shared assistant; they are not fourteen complete external service integrations.
@@ -27,10 +27,10 @@
 ## Current known limitations — do not mark complete
 
 - The gateway health check verifies reachability and token fingerprint, but a successful health check is not equivalent to a successful authenticated chat completion.
-- The app still has a shared AI conversation path for specialist sections; a specialist prompt does not substitute for a domain-specific data provider or tool integration.
+- The app still has a shared AI conversation path for specialist sections; a specialist prompt does not substitute for a domain-specific data provider or tool integration. Background WorkManager tasks are limited to AI research synthesis, reasoning and drafting.
 - Existing encrypted preference storage is not yet a Room-backed relational data layer.
-- Full autonomous execution, broad offline inference, continuous background phone control, finance data, Health Connect, calendar provider integration, and production communication sending require separate implementation and tests.
-- Physical Redmi Note 13 4G / HyperOS behavior remains unverified until the owner tests the exact APK on-device.
+- Full tool-executing autonomy, offline inference, continuous background phone control, finance data, Health Connect, calendar provider integration, and production communication sending require separate implementation and tests. Browser page extraction is read-only when Cloudflare Browser Run is configured; TinyFish fallback is a separate automation provider and requires careful user task review.
+- A signed release APK is not yet verified; Gradle signing requires a private keystore and signing secrets. Physical Redmi Note 13 4G / HyperOS behavior remains unverified until the owner tests the exact signed APK on-device.
 
 ## Required next engineering work
 
