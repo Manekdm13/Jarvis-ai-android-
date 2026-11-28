@@ -74,18 +74,21 @@ private data class PendingPhoneAction(
     val accessibilityCommand: String? = null
 )
 
-/** Executes only commands admitted by JarvisActionPolicy; all other actions stay in the approval dialog. */
+/** Executes only commands admitted by JarvisActionPolicy; reports dispatch, not an unverified outcome. */
 private fun executeAutonomousSafeAction(context: Context, action: PendingPhoneAction): String {
     return try {
         val command = action.accessibilityCommand
         if (command != null) {
-            val ok = JarvisAccessibilityService.execute(command)
-            if (ok) "Completed autonomously: ${action.title}."
-            else "I couldn't complete ${action.title}. Enable JARVIS phone control in Android Accessibility settings and retry."
+            val dispatched = JarvisAccessibilityService.execute(command)
+            if (dispatched) {
+                "Android accepted the ${action.title} action. I cannot verify the resulting screen state yet."
+            } else {
+                "Android did not dispatch ${action.title}. Enable JARVIS phone control in Accessibility settings and retry."
+            }
         } else {
             val intent = action.intent ?: return "I couldn't prepare this action."
             context.startActivity(intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
-            "Completed autonomously: ${action.title}."
+            "Opened ${action.title}. The destination app or setting must still confirm its own result."
         }
     } catch (error: Exception) {
         "The action failed: ${error.message ?: "Android reported an error"}."
