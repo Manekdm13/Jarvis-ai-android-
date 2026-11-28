@@ -223,6 +223,7 @@ private fun JarvisApp(
     var isRunningWebAgent by remember { mutableStateOf(false) }
     var showSettings by remember { mutableStateOf(false) }
     var selectedTab by remember { mutableStateOf("home") }
+    var activeSectionId by remember { mutableStateOf<String?>(null) }
     var showRemember by remember { mutableStateOf(false) }
     var rememberSearch by remember { mutableStateOf("") }
     var memoryEntries by remember(memory) { mutableStateOf(memory.load()) }
