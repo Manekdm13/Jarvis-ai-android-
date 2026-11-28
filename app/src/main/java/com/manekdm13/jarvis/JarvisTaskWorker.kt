@@ -136,42 +136,31 @@ internal class JarvisTaskWorker(
                     history = executionContext
                 )
                 setProgress(Data.Builder().putString(KEY_TASK_ID, taskId).putString(KEY_STATUS, "Reviewing the result and checking for gaps").putInt(KEY_PROGRESS, 95).build())
-                AiGatewayClient.reply(
-                    baseUrl = gatewayUrl, token = token,
-                    message = JarvisTaskOrchestrator.reviewPrompt(goal, listOf("Initial task result" to draft)),
-                    history = executionContext
-                ).take(9_000)
+                val review = AiGatewayClient.reply(baseUrl = gatewayUrl, token = token,
+                    message = JarvisTaskOrchestrator.reviewPrompt(goal, listOf("Initial task result" to draft)), history = executionContext)
+                if (JarvisTaskOrchestrator.needsRepair(review)) {
+                    AiGatewayClient.reply(baseUrl = gatewayUrl, token = token,
+                        message = JarvisTaskOrchestrator.repairPrompt(goal, review), history = executionContext).take(9_000)
+                } else review.removePrefix("[JARVIS_REVIEW: COMPLETE]").trim().take(9_000)
             } else {
                 val completed = mutableListOf<Pair<String, String>>()
                 plan.steps.forEachIndexed { index, step ->
                     val progress = 40 + ((index + 1) * 50 / plan.steps.size)
-                    setProgress(Data.Builder()
-                        .putString(KEY_TASK_ID, taskId)
+                    setProgress(Data.Builder().putString(KEY_TASK_ID, taskId)
                         .putString(KEY_STATUS, "Step ${index + 1}/${plan.steps.size}: ${step.title}")
-                        .putInt(KEY_PROGRESS, progress)
-                        .build())
-
-                    val stepResult = AiGatewayClient.reply(
-                        baseUrl = gatewayUrl,
-                        token = token,
-                        message = JarvisTaskOrchestrator.stepPrompt(goal, step, completed),
-                        history = executionContext
-                    )
+                        .putInt(KEY_PROGRESS, progress).build())
+                    val stepResult = AiGatewayClient.reply(baseUrl = gatewayUrl, token = token,
+                        message = JarvisTaskOrchestrator.stepPrompt(goal, step, completed), history = executionContext)
                     completed += step.title to stepResult.take(4_000)
                 }
-                setProgress(Data.Builder()
-                    .putString(KEY_TASK_ID, taskId)
-                    .putString(KEY_STATUS, "Checking the work and repairing gaps")
-                    .putInt(KEY_PROGRESS, 95)
-                    .build())
-                // One bounded reviewer pass checks the result against the original goal
-                // and repairs omissions where possible before JARVIS reports completion.
-                AiGatewayClient.reply(
-                    baseUrl = gatewayUrl,
-                    token = token,
-                    message = JarvisTaskOrchestrator.reviewPrompt(goal, completed),
-                    history = executionContext
-                ).take(9_000)
+                setProgress(Data.Builder().putString(KEY_TASK_ID, taskId)
+                    .putString(KEY_STATUS, "Checking the work and repairing gaps").putInt(KEY_PROGRESS, 95).build())
+                val review = AiGatewayClient.reply(baseUrl = gatewayUrl, token = token,
+                    message = JarvisTaskOrchestrator.reviewPrompt(goal, completed), history = executionContext)
+                if (JarvisTaskOrchestrator.needsRepair(review)) {
+                    AiGatewayClient.reply(baseUrl = gatewayUrl, token = token,
+                        message = JarvisTaskOrchestrator.repairPrompt(goal, review), history = executionContext).take(9_000)
+                } else review.removePrefix("[JARVIS_REVIEW: COMPLETE]").trim().take(9_000)
             }
 
             Result.success(Data.Builder()
