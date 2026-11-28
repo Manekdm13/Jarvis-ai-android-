@@ -628,7 +628,7 @@ private fun JarvisApp(
 
                 if (selectedTab == "modules") {
                     Text("JARVIS 3.0 • 21 SYSTEM SECTIONS", color = Color(0xFF78DDE8), style = MaterialTheme.typography.titleMedium)
-                    Text("Choose a specialist workspace. Each section has its own screen and tailored actions; advanced integrations are labelled honestly.", color = Color(0xFF9DB0C7), style = MaterialTheme.typography.bodySmall)
+                    Text("Choose one of 21 AI specialist workspaces. Each routes requests through JARVIS’s shared brain with domain-specific operating rules; external services still require their own connections and permissions.", color = Color(0xFF9DB0C7), style = MaterialTheme.typography.bodySmall)
                     JarvisSections.all.forEachIndexed { index, section ->
                         Card(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(18.dp), colors = androidx.compose.material3.CardDefaults.cardColors(containerColor = Color(0xFF111F32))) {
                             Row(modifier = Modifier.fillMaxWidth().padding(14.dp), horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
@@ -638,7 +638,7 @@ private fun JarvisApp(
                                 Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                                     Text(section.name, color = Color(0xFFEAF4FF), style = MaterialTheme.typography.titleSmall)
                                     Text(section.description, color = Color(0xFF9DB0C7), style = MaterialTheme.typography.bodySmall)
-                                    Text(if (section.status == SectionStatus.FOUNDATION) "CONNECTED FOUNDATION" else "SPECIALIST WORKSPACE • INTEGRATION IN PROGRESS", color = if (section.status == SectionStatus.FOUNDATION) Color(0xFF78E0C2) else Color(0xFFFFD28B), style = MaterialTheme.typography.labelSmall)
+                                    Text(if (section.status == SectionStatus.FOUNDATION) "CONNECTED FOUNDATION" else "AI SPECIALIST WORKSPACE • SHARED BRAIN", color = if (section.status == SectionStatus.FOUNDATION) Color(0xFF78E0C2) else Color(0xFFFFD28B), style = MaterialTheme.typography.labelSmall)
                                 }
                                 TextButton(onClick = { activeSectionId = section.id; selectedTab = "section" }) { Text("Open") }
                             }
@@ -659,7 +659,7 @@ private fun JarvisApp(
                                 Text(section.name, color = Color(0xFFEAF4FF), style = MaterialTheme.typography.headlineSmall)
                                 Text(section.description, color = Color(0xFFB5C7D9), style = MaterialTheme.typography.bodyMedium)
                                 Surface(shape = RoundedCornerShape(50.dp), color = if (section.status == SectionStatus.FOUNDATION) Color(0xFF123D39) else Color(0xFF493719)) {
-                                    Text(if (section.status == SectionStatus.FOUNDATION) "FOUNDATION CONNECTED" else "WORKSPACE READY • ADVANCED INTEGRATIONS STILL IN PROGRESS", modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp), color = if (section.status == SectionStatus.FOUNDATION) Color(0xFF78E0C2) else Color(0xFFFFD28B), style = MaterialTheme.typography.labelSmall)
+                                    Text(if (section.status == SectionStatus.FOUNDATION) "FOUNDATION CONNECTED" else "AI SPECIALIST WORKSPACE • SHARED BRAIN", modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp), color = if (section.status == SectionStatus.FOUNDATION) Color(0xFF78E0C2) else Color(0xFFFFD28B), style = MaterialTheme.typography.labelSmall)
                                 }
                                 Text("QUICK ACTIONS", color = Color(0xFF78DDE8), style = MaterialTheme.typography.labelMedium)
                                 JarvisSections.actions(section.id).forEach { action ->
