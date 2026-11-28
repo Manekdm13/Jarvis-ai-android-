@@ -13,7 +13,8 @@ data class JarvisTask(
     val status: JarvisTaskStatus,
     val createdAt: Long,
     val updatedAt: Long,
-    val notes: String = ""
+    val notes: String = "",
+    val planId: String? = null
 )
 
 /**
@@ -38,7 +39,8 @@ class JarvisTaskEngine(context: Context) {
                     status = status,
                     createdAt = item.optLong("createdAt"),
                     updatedAt = item.optLong("updatedAt"),
-                    notes = item.optString("notes")
+                    notes = item.optString("notes"),
+                    planId = item.optString("planId").takeIf { it.isNotBlank() }
                 ).takeIf { it.id.isNotBlank() && it.title.isNotBlank() }
             }
         }.getOrDefault(emptyList())
@@ -51,6 +53,36 @@ class JarvisTaskEngine(context: Context) {
         val task = JarvisTask(UUID.randomUUID().toString(), title.trim(), JarvisTaskStatus.PLANNED, now, now, notes.trim())
         save(load().plus(task).takeLast(MAX_TASKS))
         return task
+    }
+
+    /**
+     * Persist a multi-step plan as individually trackable tasks sharing one plan ID.
+     * Empty/heading-only model output is rejected instead of creating fake work.
+     */
+    @Synchronized
+    fun createPlan(title: String, stepLines: List<String>): List<JarvisTask> {
+        require(title.isNotBlank()) { "Plan title cannot be blank." }
+        val steps = stepLines.map { line ->
+            line.trim()
+                .replace(Regex("^([0-9]+[.)]|[-*•])\\s*"), "")
+                .trim()
+        }.filter { it.length >= 3 }.distinct().take(20)
+        require(steps.isNotEmpty()) { "The plan must contain at least one actionable step." }
+        val planId = UUID.randomUUID().toString()
+        val now = System.currentTimeMillis()
+        val created = steps.mapIndexed { index, step ->
+            JarvisTask(
+                id = UUID.randomUUID().toString(),
+                title = step,
+                status = JarvisTaskStatus.PLANNED,
+                createdAt = now + index,
+                updatedAt = now + index,
+                notes = "Plan: ${title.trim()}",
+                planId = planId
+            )
+        }
+        save((load() + created).takeLast(MAX_TASKS))
+        return created
     }
 
     @Synchronized
@@ -81,6 +113,7 @@ class JarvisTaskEngine(context: Context) {
                 put("createdAt", task.createdAt)
                 put("updatedAt", task.updatedAt)
                 put("notes", task.notes)
+                put("planId", task.planId ?: "")
             })
         }
         check(preferences.edit().putString(KEY_TASKS, array.toString()).commit()) {
