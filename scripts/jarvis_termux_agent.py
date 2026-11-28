@@ -135,12 +135,27 @@ def run_task(action: str):
 def report(config, event_type, task_id=None, details=None):
     payload = {"device_id": config["device_id"], "event_type": event_type,
                "task_id": task_id, "details": details or {}}
-    return http_json(config["gateway"] + "/v1/device/event", config["token"], "POST", payload)
+    try:
+        return http_json(config["gateway"] + "/v1/device/event", config["token"], "POST", payload)
+    except urllib.error.HTTPError as exc:
+        if exc.code != 404:
+            raise
+        # Compatibility with the currently deployed legacy Worker bridge.
+        legacy = {"deviceId": config["device_id"], "eventType": event_type,
+                  "taskId": task_id, "details": details or {}}
+        return http_json(config["gateway"] + "/bridge/event", config["token"], "POST", legacy)
 
 def heartbeat(config):
     payload = {"device_id": config["device_id"], "name": "Android Termux",
                "agent_version": VERSION, "platform": platform.platform()}
-    return http_json(config["gateway"] + "/v1/device/heartbeat", config["token"], "POST", payload)
+    try:
+        return http_json(config["gateway"] + "/v1/device/heartbeat", config["token"], "POST", payload)
+    except urllib.error.HTTPError as exc:
+        if exc.code != 404:
+            raise
+        # Legacy heartbeat both registers the device and refreshes last_seen_at.
+        legacy = {"deviceId": config["device_id"], "name": "Android Termux"}
+        return http_json(config["gateway"] + "/bridge/heartbeat", config["token"], "POST", legacy)
 
 def get_tasks():
     url = "https://api.github.com/repos/" + REPO + "/issues?state=open&per_page=100"
