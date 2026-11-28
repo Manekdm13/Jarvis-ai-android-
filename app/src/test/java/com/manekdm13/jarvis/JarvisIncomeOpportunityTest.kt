@@ -55,4 +55,12 @@ class JarvisIncomeOpportunityTest {
         assertNotNull(opportunity().copy(officialUrl = "http://example.com").validate())
         assertNotNull(opportunity().copy(estimatedMinutes = 0).validate())
     }
+
+    @Test fun rejectsNonFiniteRewardsAndCosts() {
+        assertNotNull(opportunity().copy(grossRewardUsd = Double.NaN).validate())
+        assertNotNull(opportunity().copy(grossRewardUsd = Double.POSITIVE_INFINITY).validate())
+        assertNotNull(opportunity().copy(feesUsd = Double.NaN).validate())
+        assertNotNull(opportunity().copy(otherCostsUsd = Double.NEGATIVE_INFINITY).validate())
+        assertNotNull(opportunity().copy(withdrawalMinimumUsd = Double.POSITIVE_INFINITY).validate())
+    }
 }
