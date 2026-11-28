@@ -35,13 +35,18 @@ internal object DocumentTextExtractor {
             ?: throw IllegalArgumentException("Android could not open the selected PDF.")
         val recognizer = TextRecognition.getClient(TextRecognizerOptions.DEFAULT_OPTIONS)
         val extractedPages = mutableListOf<String>()
+        var totalPages = 0
+        var pagesProcessed = 0
+        var reachedTextLimit = false
         try {
             PdfRenderer(descriptor).use { renderer ->
-                if (renderer.pageCount == 0) {
+                totalPages = renderer.pageCount
+                if (totalPages == 0) {
                     throw IllegalArgumentException("The selected PDF has no pages.")
                 }
-                val pagesToRead = minOf(renderer.pageCount, MAX_PDF_PAGES)
+                val pagesToRead = minOf(totalPages, MAX_PDF_PAGES)
                 for (pageIndex in 0 until pagesToRead) {
+                    pagesProcessed = pageIndex + 1
                     renderer.openPage(pageIndex).use { page ->
                         val scale = minOf(1f, MAX_RENDER_DIMENSION.toFloat() / maxOf(page.width, page.height))
                         val width = (page.width * scale).toInt().coerceAtLeast(1)
@@ -62,24 +67,21 @@ internal object DocumentTextExtractor {
                             bitmap.recycle()
                         }
                     }
-                    if (extractedPages.sumOf { it.length } >= MAX_EXTRACTED_CHARS) break
+                    if (extractedPages.sumOf { it.length } >= MAX_EXTRACTED_CHARS) {
+                        reachedTextLimit = true
+                        break
+                    }
                 }
             }
         } finally {
             recognizer.close()
             descriptor.close()
         }
-        val suffix = if (extractedPages.size < pdfPageCount(context, pdfUri)) {
+        val suffix = if (pagesProcessed < totalPages || reachedTextLimit) {
             "\n\n[Scanning stopped at the safe page or text limit.]"
         } else ""
         return (extractedPages.joinToString("\n\n") + suffix).take(MAX_EXTRACTED_CHARS)
     }
-
-    private fun pdfPageCount(context: Context, uri: Uri): Int = runCatching {
-        context.contentResolver.openFileDescriptor(uri, "r")?.use { descriptor ->
-            PdfRenderer(descriptor).use { it.pageCount }
-        } ?: 0
-    }.getOrDefault(0)
 
     private fun normalize(text: String): String = text
         .replace(Regex("[\\t ]+"), " ")
