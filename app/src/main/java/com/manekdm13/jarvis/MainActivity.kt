@@ -521,7 +521,7 @@ private fun JarvisApp(onSpeak: (String) -> Unit) {
                                     ollamaUrl = ollamaUrl,
                                     ollamaModel = ollamaModel,
                                     cloud = { AiGatewayClient.reply(gatewayUrl, gatewayToken, question, history) },
-                                    local = { AiGatewayClient.localReply(ollamaUrl, ollamaModel, "You are JARVIS, a helpful private assistant. Context follows:\\n" + history, question) },
+                                    local = { AiGatewayClient.localReply(ollamaUrl, ollamaModel, JarvisToolRegistry.modelInstructions() + "\\nContext follows:\\n" + history, question) },
                                     allowCloudFallback = allowCloudFallback
                                 )
                             }
