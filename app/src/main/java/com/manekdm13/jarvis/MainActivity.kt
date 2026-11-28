@@ -713,26 +713,6 @@ private fun JarvisApp(
                     }
                 }
 
-                Surface(shape = RoundedCornerShape(20.dp), color = Color(0xFF101D2F), modifier = Modifier.fillMaxWidth()) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(horizontal = 3.dp, vertical = 4.dp),
-                        horizontalArrangement = Arrangement.Start,
-                        verticalAlignment = androidx.compose.ui.Alignment.CenterVertically
-                    ) {
-                        listOf("home" to "Home", "chat" to "Chat", "modules" to "21 Sections", "agent" to "Agent", "library" to "Library", "tasks" to "Memory", "settings" to "Settings").forEach { (tab, label) ->
-                            TextButton(onClick = {
-                                selectedTab = tab
-                                showSettings = tab == "settings"
-                                showRemember = tab == "tasks"
-                                if (tab == "tasks") memoryEntries = memory.load()
-                                if (tab == "agent") agentTasks = taskEngine.load()
-                            }) {
-                                Text(label, color = if (selectedTab == tab) Color(0xFF77E5EE) else Color(0xFF8FA5BF), style = MaterialTheme.typography.labelMedium)
-                            }
-                        }
-                    }
-                }
-
                 if (showSettings) {
                     Card(
                         shape = RoundedCornerShape(18.dp),
@@ -1067,6 +1047,29 @@ private fun JarvisApp(
                         ) { Text("🌐  Browser & Research") }
                     }
                 }
+                Surface(shape = RoundedCornerShape(20.dp), color = Color(0xFF101D2F), modifier = Modifier.fillMaxWidth()) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(horizontal = 3.dp, vertical = 4.dp),
+                        horizontalArrangement = Arrangement.Start,
+                        verticalAlignment = androidx.compose.ui.Alignment.CenterVertically
+                    ) {
+                        listOf("home" to "Home", "chat" to "Chat", "modules" to "21 Sections", "agent" to "Agent", "library" to "Library", "tasks" to "Memory", "settings" to "Settings").forEach { (tab, label) ->
+                            TextButton(onClick = {
+                                selectedTab = tab
+                                if (tab == "modules" || tab == "section" || tab == "chat") {
+                                    scope.launch { sectionHubScrollState.scrollTo(0) }
+                                }
+                                showSettings = tab == "settings"
+                                showRemember = tab == "tasks"
+                                if (tab == "tasks") memoryEntries = memory.load()
+                                if (tab == "agent") agentTasks = taskEngine.load()
+                            }) {
+                                Text(label, color = if (selectedTab == tab) Color(0xFF77E5EE) else Color(0xFF8FA5BF), style = MaterialTheme.typography.labelMedium)
+                            }
+                        }
+                    }
+                }
+
             }
         }
     }
