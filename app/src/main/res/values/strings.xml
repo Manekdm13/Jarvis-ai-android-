@@ -1,0 +1,4 @@
+<resources>
+    <string name="app_name">JARVIS</string>
+    <string name="jarvis_accessibility_description">Allows JARVIS to read visible screen text and carry out explicit user-requested navigation actions. JARVIS does not run hidden actions.</string>
+</resources>
