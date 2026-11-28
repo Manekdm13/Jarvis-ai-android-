@@ -454,6 +454,25 @@ private fun JarvisApp(onSpeak: (String) -> Unit) {
             return
         }
 
+        if (JarvisTaskIntent.isAutonomousTaskRequest(normalizedQuestion)) {
+            val taskId = java.util.UUID.randomUUID().toString()
+            runCatching { JarvisTaskScheduler.enqueue(context, taskId, normalizedQuestion) }
+                .onSuccess {
+                    backgroundTaskId = taskId
+                    settings.edit().putString("last_background_task_id", taskId).apply()
+                    backgroundTaskStatus = "Queued — JARVIS is planning your objective"
+                    backgroundTaskResult = ""
+                    record(
+                        question,
+                        "I've taken ownership of this objective. I'll break it into steps, work through them in the background, review the result for gaps, and report anything that needs your approval. You can keep chatting or close the app."
+                    )
+                }
+                .onFailure { error ->
+                    record(question, "I couldn't start the background task: ${error.message ?: "unknown error"}. You can retry using Run this task in background.")
+                }
+            return
+        }
+
         val prepared = resolvePhoneAction(context, question)
         when {
             prepared?.first != null -> {
