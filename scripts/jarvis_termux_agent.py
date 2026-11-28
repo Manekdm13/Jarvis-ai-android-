@@ -46,7 +46,7 @@ def http_json(url: str, token: str | None = None, method: str = "GET", payload=N
 def redact(value: str) -> str:
     for pattern, replacement in REDACT:
         value = pattern.sub(replacement, value)
-    return value[-9000:]
+    return value[-3500:]
 
 def load_config():
     if not CONFIG_FILE.exists():
@@ -172,11 +172,13 @@ def process_pending(config):
         except json.JSONDecodeError:
             report(config, "task_failed", str(number), {"error": "Task body must be JSON."})
             completed.add(number)
+            save_private(STATE_FILE, {"completed_issues": sorted(completed)[-500:]})
             continue
         action = task.get("action") if isinstance(task, dict) else None
         if action not in {"termux_diagnostics", "git_status", "git_fetch", "worker_tests", "gradle_debug_build"}:
             report(config, "task_failed", str(number), {"error": "Task action is not allowlisted."})
             completed.add(number)
+            save_private(STATE_FILE, {"completed_issues": sorted(completed)[-500:]})
             continue
         report(config, "task_started", str(number), {"action": action, "issue": number})
         try:
