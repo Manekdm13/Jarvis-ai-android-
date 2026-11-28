@@ -73,8 +73,8 @@ internal object JarvisTaskOrchestrator {
      * verification/repair request, not permission to perform external actions.
      */
     fun reviewPrompt(goal: String, completed: List<Pair<String, String>>): String {
-        val evidence = completed.joinToString("\\n\\n") { (title, result) ->
-            "STEP: $title\\nOUTPUT: ${result.take(3_000)}"
+        val evidence = completed.joinToString("\n\n") { (title, result) ->
+            "STEP: $title\nOUTPUT: ${result.take(3_000)}"
         }
         return """
             You are JARVIS performing a final quality-control and recovery pass.
