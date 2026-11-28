@@ -224,6 +224,9 @@ private fun JarvisApp(
     var showSettings by remember { mutableStateOf(false) }
     var selectedTab by remember { mutableStateOf("home") }
     var activeSectionId by remember { mutableStateOf<String?>(null) }
+    val taskEngine = remember(context) { JarvisTaskEngine(context.applicationContext) }
+    var agentTasks by remember(taskEngine) { mutableStateOf(taskEngine.load()) }
+    var newTaskTitle by remember { mutableStateOf("") }
     var showRemember by remember { mutableStateOf(false) }
     var rememberSearch by remember { mutableStateOf("") }
     var memoryEntries by remember(memory) { mutableStateOf(memory.load()) }
@@ -433,7 +436,7 @@ private fun JarvisApp(
                 )
         ) {
             Column(
-                modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp, vertical = 14.dp).then(if (selectedTab == "home" || selectedTab == "settings" || selectedTab == "library" || selectedTab == "modules") Modifier.verticalScroll(rememberScrollState()) else Modifier),
+                modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp, vertical = 14.dp).then(if (selectedTab == "home" || selectedTab == "settings" || selectedTab == "library" || selectedTab == "modules" || selectedTab == "agent") Modifier.verticalScroll(rememberScrollState()) else Modifier),
                 verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
                 Row(
@@ -529,16 +532,51 @@ private fun JarvisApp(
                         }
                     }
                 }
+                if (selectedTab == "agent") {
+                    Text("AUTONOMOUS WORKSPACE", color = Color(0xFF78DDE8), style = MaterialTheme.typography.titleMedium)
+                    Text("Durable task tracking is active. Tasks survive app restarts; execution and external actions still require connected tools and your approval where appropriate.", color = Color(0xFF9DB0C7), style = MaterialTheme.typography.bodySmall)
+                    Card(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(18.dp), colors = androidx.compose.material3.CardDefaults.cardColors(containerColor = Color(0xFF111F32))) {
+                        Column(Modifier.fillMaxWidth().padding(14.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                            OutlinedTextField(value = newTaskTitle, onValueChange = { newTaskTitle = it }, modifier = Modifier.fillMaxWidth(), label = { Text("Add a task for JARVIS to track") }, placeholder = { Text("e.g. Prepare my scholarship shortlist") }, minLines = 2, maxLines = 3)
+                            Button(enabled = newTaskTitle.isNotBlank(), onClick = {
+                                runCatching { taskEngine.create(newTaskTitle) }.onSuccess {
+                                    newTaskTitle = ""
+                                    agentTasks = taskEngine.load()
+                                }
+                            }, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(14.dp)) { Text("Save task") }
+                        }
+                    }
+                    if (agentTasks.isEmpty()) {
+                        Text("No tracked tasks yet. Add one above; JARVIS will keep its status on this device.", color = Color(0xFF9DB0C7), style = MaterialTheme.typography.bodyMedium)
+                    } else {
+                        agentTasks.sortedByDescending { it.updatedAt }.forEach { task ->
+                            Card(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(16.dp), colors = androidx.compose.material3.CardDefaults.cardColors(containerColor = Color(0xFF111F32))) {
+                                Column(Modifier.fillMaxWidth().padding(13.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                                    Text(task.title, color = Color(0xFFEAF4FF), style = MaterialTheme.typography.titleSmall)
+                                    Text(task.status.name.replace('_', ' '), color = if (task.status == JarvisTaskStatus.COMPLETED) Color(0xFF78E0C2) else Color(0xFFFFD28B), style = MaterialTheme.typography.labelSmall)
+                                    Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                                        if (task.status != JarvisTaskStatus.IN_PROGRESS && task.status != JarvisTaskStatus.COMPLETED) TextButton(onClick = { taskEngine.updateStatus(task.id, JarvisTaskStatus.IN_PROGRESS); agentTasks = taskEngine.load() }) { Text("Start") }
+                                        if (task.status != JarvisTaskStatus.WAITING_FOR_APPROVAL && task.status != JarvisTaskStatus.COMPLETED) TextButton(onClick = { taskEngine.updateStatus(task.id, JarvisTaskStatus.WAITING_FOR_APPROVAL); agentTasks = taskEngine.load() }) { Text("Needs approval") }
+                                        if (task.status != JarvisTaskStatus.COMPLETED) TextButton(onClick = { taskEngine.updateStatus(task.id, JarvisTaskStatus.COMPLETED); agentTasks = taskEngine.load() }) { Text("Complete") }
+                                        TextButton(onClick = { taskEngine.delete(task.id); agentTasks = taskEngine.load() }) { Text("Delete") }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+
                 if (selectedTab == "modules") { Text("JARVIS 3.0 • 21 SYSTEM SECTIONS", color = Color(0xFF78DDE8), style = MaterialTheme.typography.titleMedium); Text("One central AI brain. Shared memory. Permission-gated actions. Planned sections are not yet fully connected.", color = Color(0xFF9DB0C7), style = MaterialTheme.typography.bodySmall); JarvisSections.all.forEach { section -> Card(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(16.dp), colors = androidx.compose.material3.CardDefaults.cardColors(containerColor = Color(0xFF111F32))) { Row(modifier = Modifier.fillMaxWidth().padding(13.dp), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) { Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) { Text(section.name, color = Color(0xFFEAF4FF), style = MaterialTheme.typography.titleSmall); Text(section.description, color = Color(0xFF9DB0C7), style = MaterialTheme.typography.bodySmall); Text(if (section.status == SectionStatus.FOUNDATION) "FOUNDATION AVAILABLE" else "PLANNED • CENTRAL BRAIN ROUTING", color = if (section.status == SectionStatus.FOUNDATION) Color(0xFF78E0C2) else Color(0xFFFFD28B), style = MaterialTheme.typography.labelSmall) }; TextButton(onClick = { activeSectionId = section.id; selectedTab = "chat"; input = "Open the " + section.name + " section. " + section.description + " Tell me what you can do now and what still needs implementation." }) { Text("Open") } } } } }
 
                 Surface(shape = RoundedCornerShape(20.dp), color = Color(0xFF101D2F), modifier = Modifier.fillMaxWidth()) {
                     Row(Modifier.fillMaxWidth().padding(horizontal = 3.dp, vertical = 4.dp), horizontalArrangement = Arrangement.SpaceEvenly, verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
-                        listOf("home" to "Home", "chat" to "Chat", "modules" to "21 Sections", "library" to "Library", "tasks" to "Memory", "settings" to "Settings").forEach { (tab, label) ->
+                        listOf("home" to "Home", "chat" to "Chat", "modules" to "21 Sections", "agent" to "Agent", "library" to "Library", "tasks" to "Memory", "settings" to "Settings").forEach { (tab, label) ->
                             TextButton(onClick = {
                                 selectedTab = tab
                                 showSettings = tab == "settings"
                                 showRemember = tab == "tasks"
                                 if (tab == "tasks") memoryEntries = memory.load()
+                                if (tab == "agent") agentTasks = taskEngine.load()
                             }) {
                                 Text(label, color = if (selectedTab == tab) Color(0xFF77E5EE) else Color(0xFF8FA5BF), style = MaterialTheme.typography.labelMedium)
                             }
