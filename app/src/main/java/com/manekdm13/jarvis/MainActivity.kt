@@ -1064,7 +1064,7 @@ private fun JarvisApp(
                             modifier = Modifier.fillMaxWidth(),
                             enabled = !isThinking && !isRunningWebAgent,
                             shape = RoundedCornerShape(14.dp)
-                        ) { Text("🌐  TinyFish Web Agent") }
+                        ) { Text("🌐  Browser & Research") }
                     }
                 }
             }
@@ -1074,10 +1074,10 @@ private fun JarvisApp(
     if (showWebAgentDialog) {
         AlertDialog(
             onDismissRequest = { if (!isRunningWebAgent) showWebAgentDialog = false },
-            title = { Text("TinyFish Web Agent") },
+            title = { Text("Browser & Research") },
             text = {
                 Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                    Text("Give JARVIS a website and a specific browser task. Review the task before running it; some browser actions may submit forms or change website data.")
+                    Text("Give JARVIS a public website and a research goal. Browser page reading is read-only. Website submission, sending, publishing, deleting, purchasing and account changes are blocked until action-specific approvals exist.")
                     OutlinedTextField(
                         value = webAgentUrl,
                         onValueChange = { webAgentUrl = it },
@@ -1090,7 +1090,7 @@ private fun JarvisApp(
                         value = webAgentGoal,
                         onValueChange = { webAgentGoal = it },
                         modifier = Modifier.fillMaxWidth(),
-                        label = { Text("What should TinyFish do?") },
+                        label = { Text("What should JARVIS research?") },
                         placeholder = { Text("Find the public pricing plans and summarize them. Do not purchase anything.") },
                         minLines = 3,
                         maxLines = 5
@@ -1105,7 +1105,7 @@ private fun JarvisApp(
                     enabled = !isRunningWebAgent && webAgentUrl.startsWith("http") && webAgentGoal.isNotBlank(),
                     onClick = {
                         isRunningWebAgent = true
-                        webAgentStatus = "Connecting to TinyFish…"
+                        webAgentStatus = "Connecting to browser research…"
                         scope.launch {
                             val result = withContext(Dispatchers.IO) {
                                 runCatching {
@@ -1116,7 +1116,7 @@ private fun JarvisApp(
                             result.fold(
                                 onSuccess = { output ->
                                     showWebAgentDialog = false
-                                    record("TinyFish browser task: ${webAgentGoal.trim()}", output)
+                                    record("Browser research task: ${webAgentGoal.trim()}", output)
                                 },
                                 onFailure = { error ->
                                     webAgentStatus = "Task failed: ${error.message ?: "Unknown error"}"
