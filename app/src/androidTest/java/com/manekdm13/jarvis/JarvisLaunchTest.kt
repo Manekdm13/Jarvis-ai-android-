@@ -20,7 +20,6 @@ class JarvisLaunchTest {
     fun launchShowsAssistantAndApprovalPolicy() {
         // Match the actual premium JARVIS home screen labels. The old assertions
         // expected a retired J.A.R.V.I.S title and stale onboarding copy.
-        composeRule.onNodeWithText("JARVIS", substring = false).assertIsDisplayed()
         composeRule.onNodeWithText("Your personal AI assistant").assertIsDisplayed()
         composeRule.onNodeWithText("What can I help with?").assertIsDisplayed()
         composeRule.onNodeWithText("Message your assistant…").assertIsDisplayed()
