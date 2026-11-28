@@ -55,6 +55,16 @@ class JarvisActionProtocolTest {
         }
     }
 
+    @Test fun sensitiveSearchQueriesDoNotAutoTransmit() {
+        listOf(
+            "search my password", "google my API key", "search my bank account",
+            "search my medical record", "search my private message"
+        ).forEach {
+            assertFalse("$it must require review", JarvisActionPolicy.canAutoExecute(it))
+            assertEquals(JarvisActionRisk.PRIVATE_DATA_ACCESS, JarvisActionPolicy.classify(it))
+        }
+    }
+
     @Test fun riskClassifierSeparatesNavigationFromSensitiveActions() {
         assertEquals(JarvisActionRisk.ROUTINE_REVERSIBLE, JarvisActionPolicy.classify("open Chrome"))
         assertEquals(JarvisActionRisk.EXTERNAL_NAVIGATION, JarvisActionPolicy.classify("search food safety"))
