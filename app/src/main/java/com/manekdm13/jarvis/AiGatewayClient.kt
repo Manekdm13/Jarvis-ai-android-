@@ -108,6 +108,42 @@ internal object AiGatewayClient {
         }
     }
 
+
+    /** Delegates an objective to JARVIS's own cloud orchestration loop, not a raw chat completion. */
+    fun runBrainTask(baseUrl: String, token: String, goal: String, context: String = ""): String {
+        require(token.isNotBlank()) { "Enter your private gateway access token in JARVIS settings." }
+        val cleanToken = token.replace(Regex("[\\s\\uFEFF]+"), "").removeSurrounding("\\\"").removeSurrounding("'")
+        val cleanBase = baseUrl.trim().trimEnd('/')
+        require(cleanBase.startsWith("https://")) { "Enter a valid HTTPS Worker URL in AI gateway URL." }
+        val endpoint = if (cleanBase.endsWith("/v1/brain")) cleanBase else "$cleanBase/v1/brain"
+        val payload = JSONObject().put("message", goal.take(6_000)).put("history", context.take(12_000))
+        val connection = (URL(endpoint).openConnection() as HttpURLConnection).apply {
+            requestMethod = "POST"
+            connectTimeout = 30_000
+            readTimeout = 240_000
+            doOutput = true
+            setRequestProperty("Content-Type", "application/json; charset=utf-8")
+            setRequestProperty("Authorization", "Bearer $cleanToken")
+        }
+        try {
+            connection.outputStream.use { it.write(payload.toString().toByteArray(Charsets.UTF_8)) }
+            val status = connection.responseCode
+            val stream = if (status in 200..299) connection.inputStream else connection.errorStream
+            val responseText = stream?.bufferedReader()?.use { it.readText() }.orEmpty()
+            val response = runCatching { JSONObject(responseText) }.getOrNull()
+            if (status !in 200..299) {
+                val message = response?.optString("error")?.takeIf { it.isNotBlank() }
+                    ?: "JARVIS cloud brain returned HTTP $status."
+                val details = response?.optString("details")?.takeIf { it.isNotBlank() }
+                throw IllegalStateException(if (details != null) "$message $details" else message)
+            }
+            return response?.optString("reply")?.takeIf { it.isNotBlank() }
+                ?: throw IllegalStateException("JARVIS cloud brain returned an empty result.")
+        } finally {
+            connection.disconnect()
+        }
+    }
+
     /** Runs a user-requested browser task through the authenticated Worker; TinyFish credentials stay server-side. */
     fun runWebAgent(baseUrl: String, token: String, targetUrl: String, goal: String, mode: String = "research", context: String = ""): String {
         require(token.isNotBlank()) { "Enter your private gateway access token in JARVIS settings." }
