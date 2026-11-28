@@ -188,4 +188,23 @@ internal object AiGatewayClient {
         }
     }
 
+    /** Local inference path; callers can select this instead of the cloud gateway. */
+    fun localModels(ollamaBaseUrl: String): List<JarvisOllamaClient.Model> =
+        JarvisOllamaClient.listModels(ollamaBaseUrl)
+
+    /** Run a prompt entirely against the selected Ollama model. */
+    fun localReply(
+        ollamaBaseUrl: String,
+        model: String,
+        systemPrompt: String,
+        message: String,
+        history: List<Pair<String, String>> = emptyList()
+    ): String = JarvisOllamaClient.chat(
+        baseUrl = ollamaBaseUrl,
+        model = model,
+        systemPrompt = systemPrompt,
+        userPrompt = message,
+        history = history
+    ).text
+
 }
