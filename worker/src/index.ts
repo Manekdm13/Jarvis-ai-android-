@@ -1,5 +1,5 @@
 import puppeteer from "@cloudflare/puppeteer";
-import { runLearningCycle, searchKnowledge, type LearningDb } from "./learning";
+import { runLearningCycle, searchKnowledge, type LearningDb } from "./learning.ts";
 
 export interface Env {
   BROWSER?: any;
