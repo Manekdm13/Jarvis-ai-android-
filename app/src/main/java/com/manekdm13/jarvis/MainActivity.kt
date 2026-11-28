@@ -587,7 +587,7 @@ private fun JarvisApp(onSpeak: (String) -> Unit) {
                             OutlinedButton(
                                 onClick = {
                                     runCatching {
-                                        context.startActivity(Intent(Settings.ACTION_TEXT_TO_SPEECH_SETTINGS))
+                                        context.startActivity(Intent("com.android.settings.TTS_SETTINGS"))
                                     }.onFailure {
                                         Toast.makeText(context, "Open Android Settings > Text-to-speech output to change the voice.", Toast.LENGTH_LONG).show()
                                     }
