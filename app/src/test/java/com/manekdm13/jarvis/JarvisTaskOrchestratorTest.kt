@@ -1,6 +1,7 @@
 package com.manekdm13.jarvis
 
-import org.junit.Assert.assertTrue\nimport org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
+import org.junit.Assert.assertNull
 import org.junit.Test
 
 class JarvisTaskOrchestratorTest {
