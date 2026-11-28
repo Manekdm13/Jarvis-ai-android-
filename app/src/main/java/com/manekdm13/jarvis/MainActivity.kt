@@ -74,7 +74,7 @@ import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 
-private data class PendingPhoneAction(
+internal data class PendingPhoneAction(
     val title: String,
     val explanation: String,
     val requestedCommand: String,
@@ -1318,7 +1318,7 @@ private fun JarvisCore(isThinking: Boolean) {
 }
 
 /** Prepares an action only. It never launches an Intent. */
-private fun resolvePhoneAction(
+internal fun resolvePhoneAction(
     context: Context,
     rawCommand: String
 ): Pair<PendingPhoneAction?, String>? {
@@ -1352,6 +1352,38 @@ private fun resolvePhoneAction(
     }
     if (command == "camera" || command == "open camera") {
         return approval("Open camera", "JARVIS will open the camera. It will not take a photo automatically.", Intent(MediaStore.ACTION_IMAGE_CAPTURE))
+    }
+    if (command == "compose email" || command == "draft email") {
+        return approval(
+            "Open an email draft",
+            "JARVIS will open your email composer. Review the recipient and content yourself; nothing is sent automatically.",
+            Intent(Intent.ACTION_SENDTO, Uri.parse("mailto:"))
+        )
+    }
+    if (command.startsWith("draft whatsapp ")) {
+        val draft = rawCommand.substringAfter("draft whatsapp", "").trim()
+        if (draft.isBlank()) return null to "Tell me what message to prepare after 'draft whatsapp'."
+        if (context.packageManager.getLaunchIntentForPackage("com.whatsapp") == null) {
+            return null to "WhatsApp is not available on this device."
+        }
+        val intent = Intent(Intent.ACTION_SEND).apply {
+            type = "text/plain"
+            setPackage("com.whatsapp")
+            putExtra(Intent.EXTRA_TEXT, draft.take(4000))
+        }
+        return approval(
+            "Prepare a WhatsApp message",
+            "JARVIS will open a WhatsApp draft containing your text. You must review and press Send yourself.",
+            intent
+        )
+    }
+    if (command.startsWith("call ") && command.removePrefix("call ").matches(Regex("[+0-9() .-]{4,24}"))) {
+        val number = rawCommand.substringAfter("call ").trim()
+        return approval(
+            "Open the phone dialer",
+            "JARVIS will place the number in the dialer. It will not place the call.",
+            Intent(Intent.ACTION_DIAL, Uri.parse("tel:" + Uri.encode(number)))
+        )
     }
     if (command == "call" || command.contains("open phone") || command.contains("dialer")) {
         return approval("Open phone dialer", "JARVIS will open the dialer, not place a call.", Intent(Intent.ACTION_DIAL))
