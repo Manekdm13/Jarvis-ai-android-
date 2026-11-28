@@ -30,6 +30,19 @@ internal object DocumentTextExtractor {
         }
     }
 
+    fun extractImagesText(context: Context, imageUris: List<Uri>): String {
+        require(imageUris.isNotEmpty()) { "Select at least one image." }
+        val selected = imageUris.take(MAX_GALLERY_IMAGES)
+        val pages = selected.mapIndexedNotNull { index, uri ->
+            val text = extractImageText(context, uri)
+            if (text.isBlank()) null else "IMAGE ${index + 1}\n$text"
+        }
+        val limitNotice = if (imageUris.size > MAX_GALLERY_IMAGES) {
+            "\\n\\n[For safety, only the first $MAX_GALLERY_IMAGES selected images were scanned.]"
+        } else ""
+        return (pages.joinToString("\\n\\n") + limitNotice).take(MAX_EXTRACTED_CHARS)
+    }
+
     fun extractPdfText(context: Context, pdfUri: Uri): String {
         val descriptor = context.contentResolver.openFileDescriptor(pdfUri, "r")
             ?: throw IllegalArgumentException("Android could not open the selected PDF.")
@@ -91,6 +104,7 @@ internal object DocumentTextExtractor {
 
     private const val MAX_EXTRACTED_CHARS = 18_000
     private const val MAX_PDF_PAGES = 20
+    private const val MAX_GALLERY_IMAGES = 10
     private const val MAX_RENDER_DIMENSION = 1800
     private const val OCR_TIMEOUT_SECONDS = 45L
 }
