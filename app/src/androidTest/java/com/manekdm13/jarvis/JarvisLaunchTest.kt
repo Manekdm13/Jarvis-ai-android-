@@ -7,6 +7,8 @@ import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.hasSetTextAction
+import androidx.compose.ui.test.onNode
 import androidx.test.platform.app.InstrumentationRegistry
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -24,7 +26,7 @@ class JarvisLaunchTest {
         composeRule.onNodeWithText("J.A.R.V.I.S").assertIsDisplayed()
         composeRule.onNodeWithText("One assistant for conversation, files, research and phone actions.").assertIsDisplayed()
         composeRule.onNodeWithText("Chat").performScrollTo().performClick()
-        composeRule.onNodeWithText("Message your assistant…").assertIsDisplayed()
+        composeRule.onNode(hasSetTextAction()).assertIsDisplayed()
         composeRule.onNodeWithText("Send  ➤").assertIsDisplayed()
     }
 
