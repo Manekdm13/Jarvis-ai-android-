@@ -107,7 +107,9 @@ class MainActivity : ComponentActivity() {
                     ?.filter { it.locale.language == language.language && it.locale.country == language.country }
                     ?.sortedWith(compareByDescending<android.speech.tts.Voice> { it.quality }.thenBy { it.isNetworkConnectionRequired })
                     ?.firstOrNull()
-                if (preferredVoice != null) engine.voice = preferredVoice
+                val currentVoiceName = engine.voice?.name
+                val alternativeVoice = preferredVoice?.takeIf { it.name != currentVoiceName }
+                if (alternativeVoice != null) engine.voice = alternativeVoice
                 engine.setPitch(0.94f)
                 engine.setSpeechRate(0.96f)
             }
@@ -572,6 +574,27 @@ private fun JarvisApp(onSpeak: (String) -> Unit) {
                                 singleLine = true,
                                 visualTransformation = PasswordVisualTransformation()
                             )
+                            Text(
+                                "VOICE & SPEAKING",
+                                color = Color(0xFF70DCEB),
+                                style = MaterialTheme.typography.labelMedium
+                            )
+                            Text(
+                                "JARVIS now prefers a clearer installed English voice and a slightly calmer speaking pace. You can choose another voice or engine in Android's speech settings.",
+                                color = Color(0xFF9DB5CD),
+                                style = MaterialTheme.typography.bodySmall
+                            )
+                            OutlinedButton(
+                                onClick = {
+                                    runCatching {
+                                        context.startActivity(Intent(Settings.ACTION_TEXT_TO_SPEECH_SETTINGS))
+                                    }.onFailure {
+                                        Toast.makeText(context, "Open Android Settings > Text-to-speech output to change the voice.", Toast.LENGTH_LONG).show()
+                                    }
+                                },
+                                modifier = Modifier.fillMaxWidth(),
+                                shape = RoundedCornerShape(14.dp)
+                            ) { Text("Choose JARVIS voice") }
                             Text(
                                 "PHONE CONTROL (OPTIONAL)",
                                 color = Color(0xFF70DCEB),
