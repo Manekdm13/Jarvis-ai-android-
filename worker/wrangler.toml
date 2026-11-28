@@ -21,3 +21,8 @@ period = 60
 
 [browser]
 binding = "BROWSER"
+
+[[d1_databases]]
+binding = "DEVICE_DB"
+database_name = "jarvis-device-bridge"
+database_id = "63240602-5f29-49a0-be97-c210ff4c6275"
