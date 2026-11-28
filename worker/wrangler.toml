@@ -21,3 +21,12 @@ period = 60
 
 [browser]
 binding = "BROWSER"
+
+[[d1_databases]]
+binding = "JARVIS_KNOWLEDGE"
+database_name = "jarvis-knowledge-memory"
+database_id = "a16a963c-acb4-41c0-a510-392300d95cd7"
+migrations_dir = "migrations"
+
+[triggers]
+crons = ["17 */6 * * *"]
