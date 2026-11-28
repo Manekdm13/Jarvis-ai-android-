@@ -88,6 +88,43 @@ object JarvisPersonalLibrary {
         }.getOrElse { "I couldn't scan that folder: ${it.message ?: "access error"}" }
     }
 
+    fun openFile(context: Context, nameQuery: String): String {
+        val tree = savedFolder(context) ?: return "Share a folder with JARVIS first."
+        return runCatching {
+            val rootId = DocumentsContract.getTreeDocumentId(tree)
+            val children = DocumentsContract.buildChildDocumentsUriUsingTree(tree, rootId)
+            val projection = arrayOf(
+                DocumentsContract.Document.COLUMN_DOCUMENT_ID,
+                DocumentsContract.Document.COLUMN_DISPLAY_NAME,
+                DocumentsContract.Document.COLUMN_MIME_TYPE
+            )
+            var matchId: String? = null
+            var mime = ""
+            var displayName = ""
+            context.contentResolver.query(children, projection, null, null, null)?.use { cursor ->
+                val idCol = cursor.getColumnIndexOrThrow(DocumentsContract.Document.COLUMN_DOCUMENT_ID)
+                val nameCol = cursor.getColumnIndexOrThrow(DocumentsContract.Document.COLUMN_DISPLAY_NAME)
+                val mimeCol = cursor.getColumnIndexOrThrow(DocumentsContract.Document.COLUMN_MIME_TYPE)
+                while (cursor.moveToNext()) {
+                    val name = cursor.getString(nameCol).orEmpty()
+                    if (name.contains(nameQuery, true)) {
+                        matchId = cursor.getString(idCol)
+                        mime = cursor.getString(mimeCol).orEmpty()
+                        displayName = name
+                        break
+                    }
+                }
+            }
+            val id = matchId ?: return "I couldn't find a top-level file matching '$nameQuery' in the shared folder."
+            val uri = DocumentsContract.buildDocumentUriUsingTree(tree, id)
+            val view = Intent(Intent.ACTION_VIEW)
+                .setDataAndType(uri, mime.ifBlank { "*/*" })
+                .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_ACTIVITY_NEW_TASK)
+            context.startActivity(view)
+            "Opened $displayName in its associated Android app."
+        }.getOrElse { "I couldn't open that file: ${it.message ?: "unknown error"}" }
+    }
+
     fun readTextFile(context: Context, nameQuery: String): String {
         val tree = savedFolder(context)
             ?: return "Share a folder with JARVIS first."
