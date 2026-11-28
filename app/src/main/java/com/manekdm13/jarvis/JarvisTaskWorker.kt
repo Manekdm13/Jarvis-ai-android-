@@ -82,10 +82,20 @@ internal class JarvisTaskWorker(
                     mode = "automation",
                     context = browserContext
                 )
+                setProgress(Data.Builder().putString(KEY_TASK_ID, taskId)
+                    .putString(KEY_STATUS, "Checking browser results and approval boundaries")
+                    .putInt(KEY_PROGRESS, 90).build())
+                val browserReview = AiGatewayClient.reply(baseUrl = gatewayUrl, token = token,
+                    message = JarvisTaskOrchestrator.reviewPrompt(goal, listOf("Browser operation result" to browserResult)),
+                    history = browserContext)
+                val finalBrowserResult = if (JarvisTaskOrchestrator.needsRepair(browserReview)) {
+                    AiGatewayClient.reply(baseUrl = gatewayUrl, token = token,
+                        message = JarvisTaskOrchestrator.repairPrompt(goal, browserReview), history = browserContext).take(9_000)
+                } else browserReview.removePrefix("[JARVIS_REVIEW: COMPLETE]").trim().take(9_000)
                 return@withContext Result.success(Data.Builder()
                     .putString(KEY_TASK_ID, taskId)
                     .putString(KEY_STATUS, "Browser task finished — review required")
-                    .putString(KEY_RESULT, browserResult.take(9_000))
+                    .putString(KEY_RESULT, finalBrowserResult)
                     .putInt(KEY_PROGRESS, 100)
                     .build())
             }
