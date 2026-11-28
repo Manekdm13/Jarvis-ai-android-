@@ -260,6 +260,39 @@ test("TinyFish web-agent route authenticates, forwards the task, and keeps the A
   } finally { globalThis.fetch = original; }
 });
 
+test("TinyFish fallback blocks consequential website actions but allows explicit negative warnings", async () => {
+  const original = globalThis.fetch;
+  let calls = 0;
+  globalThis.fetch = async () => {
+    calls++;
+    return response({ status: "completed", result: { summary: "Read-only result" } });
+  };
+  try {
+    const blocked = await worker.fetch(
+      new Request("https://jarvis.example/v1/web-agent", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ url: "https://example.com", goal: "Submit this application form." }),
+      }),
+      env({ TINYFISH_API_KEY: "test-tinyfish-secret" }),
+    );
+    assert.equal(blocked.status, 403);
+    assert.match((await blocked.json()).error, /read-only research/);
+    assert.equal(calls, 0);
+
+    const safe = await worker.fetch(
+      new Request("https://jarvis.example/v1/web-agent", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ url: "https://example.com", goal: "Summarize the public plans. Do not purchase anything." }),
+      }),
+      env({ TINYFISH_API_KEY: "test-tinyfish-secret" }),
+    );
+    assert.equal(safe.status, 200);
+    assert.equal(calls, 1);
+  } finally { globalThis.fetch = original; }
+});
+
 test("TinyFish route fails clearly when its Worker secret is missing", async () => {
   const res = await worker.fetch(
     new Request("https://jarvis.example/v1/web-agent", {
