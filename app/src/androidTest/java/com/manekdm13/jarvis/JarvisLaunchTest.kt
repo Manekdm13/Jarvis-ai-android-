@@ -30,6 +30,15 @@ class JarvisLaunchTest {
 
 
     @Test
+    fun settingsIsReachableFromHeaderOnNarrowScreens() {
+        composeRule.onNodeWithText("⚙ Settings").assertIsDisplayed().performClick()
+        composeRule.waitForIdle()
+        composeRule.onNodeWithText("AI gateway URL").assertIsDisplayed()
+        composeRule.onNodeWithText("Private gateway token").assertIsDisplayed()
+        composeRule.onNodeWithText("Test connection").assertIsDisplayed()
+    }
+
+    @Test
     fun sectionHubOpensARealSpecialistWorkspace() {
         composeRule.onNodeWithText("21 Sections").performScrollTo().performClick()
         composeRule.waitForIdle()
