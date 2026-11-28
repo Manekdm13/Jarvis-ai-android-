@@ -1,6 +1,7 @@
 package com.manekdm13.jarvis
 
 import android.content.Context
+import android.content.Intent
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.onNodeWithText
@@ -228,6 +229,29 @@ class JarvisLaunchTest {
         val started = engine.updateStatus(steps.first().id, JarvisTaskStatus.IN_PROGRESS)
         assertEquals(JarvisTaskStatus.IN_PROGRESS, started?.status)
         assertEquals(JarvisTaskStatus.PLANNED, engine.load().last().status)
+    }
+
+    @Test
+    fun communicationDraftsAndCallsRequireActionSpecificApproval() {
+        val context = InstrumentationRegistry.getInstrumentation().targetContext
+
+        val email = requireNotNull(resolvePhoneAction(context, "compose email")?.first)
+        assertEquals(Intent.ACTION_SENDTO, email.intent.action)
+        assertEquals("mailto", email.intent.data?.scheme)
+
+        val dial = requireNotNull(resolvePhoneAction(context, "call +1 555 010 1234")?.first)
+        assertEquals(Intent.ACTION_DIAL, dial.intent.action)
+        assertEquals("tel", dial.intent.data?.scheme)
+
+        val whatsapp = resolvePhoneAction(context, "draft whatsapp Please review my application.")
+        if (context.packageManager.getLaunchIntentForPackage("com.whatsapp") != null) {
+            val draft = requireNotNull(whatsapp?.first)
+            assertEquals(Intent.ACTION_SEND, draft.intent.action)
+            assertEquals("com.whatsapp", draft.intent.getPackage())
+            assertEquals("Please review my application.", draft.intent.getStringExtra(Intent.EXTRA_TEXT))
+        } else {
+            assertEquals("WhatsApp is not available on this device.", whatsapp?.second)
+        }
     }
 
     @Test
