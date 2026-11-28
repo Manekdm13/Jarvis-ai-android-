@@ -56,7 +56,7 @@ internal class JarvisTaskWorker(
         val cloudConfigured = gatewayUrl.isNotBlank() && token.isNotBlank()
         if ((inferenceMode == JarvisInferenceRouter.MODE_CLOUD && !cloudConfigured) ||
             (inferenceMode != JarvisInferenceRouter.MODE_CLOUD && !localConfigured) ||
-            (webUrl.isNotBlank() && !cloudConfigured)) {
+            (webUrl.isNotBlank() && (!cloudConfigured || !JarvisInferenceRouter.mayUseCloudResearch(inferenceMode, allowCloudFallback)))) {
             return@withContext Result.failure(
                 Data.Builder()
                     .putString(KEY_TASK_ID, taskId)
