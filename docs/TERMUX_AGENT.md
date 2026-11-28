@@ -4,7 +4,7 @@ This agent is an outbound-only companion for a user's own Termux checkout. It do
 
 ## Supported tasks
 
-The agent polls public GitHub issues created by the repository owner whose title starts with `[JARVIS TASK]`. The issue body must be a JSON object containing one fixed `action` value:
+The agent polls this public repository for issues created by `Manekdm13` whose title starts with `[JARVIS TASK]`. Task titles and JSON bodies are public because this repository is public; never put secrets, personal information, or private command output in a task. The issue body must be a JSON object containing one fixed `action` value:
 
 - `termux_diagnostics`
 - `git_status`
@@ -53,7 +53,7 @@ A task issue created by the repository owner uses a title such as `[JARVIS TASK]
 {"action":"termux_diagnostics"}
 ```
 
-The agent reports status to the authenticated Worker endpoint. Results are visible to the connected Cloudflare account through D1 audit records.
+The agent reports status to the authenticated Worker endpoint. Results are visible to the connected Cloudflare account through D1 audit records. ChatGPT can submit task issues through the connected GitHub integration and inspect the resulting D1 audit events; this is an outbound polling bridge, not a raw SSH session.
 
 ## Security
 
