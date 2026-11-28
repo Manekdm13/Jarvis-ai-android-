@@ -636,7 +636,7 @@ private fun JarvisApp(
                                     Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                                         if (task.status == JarvisTaskStatus.WAITING_FOR_APPROVAL) {
                                             TextButton(onClick = { pendingTaskApproval = task }) { Text("Review approval") }
-                                        } else if (task.status == JarvisTaskStatus.PLANNED || task.status == JarvisTaskStatus.FAILED) {
+                                        } else if (task.status == JarvisTaskStatus.PLANNED || task.status == JarvisTaskStatus.FAILED || task.status == JarvisTaskStatus.CANCELLED) {
                                             TextButton(onClick = {
                                                 if (JarvisTaskApprovalPolicy.requiresApproval(task.title + " " + task.notes)) {
                                                     val waiting = taskEngine.updateStatus(task.id, JarvisTaskStatus.WAITING_FOR_APPROVAL)
