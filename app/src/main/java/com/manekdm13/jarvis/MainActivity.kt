@@ -394,7 +394,7 @@ private fun JarvisApp(
                             append(activeUserProfile.trim())
                             append("\n\n")
                         }
-                        activeSectionId?.let { sectionId -> JarvisSections.find(sectionId)?.let { section -> append("ACTIVE SPECIALIST SECTION: " + section.name + ". " + section.description + " Use available tools, shared context, and state limitations honestly.\n\n") } }
+                        activeSectionId?.let { sectionId -> JarvisSections.find(sectionId)?.let { section -> append("ACTIVE SPECIALIST SECTION: " + section.name + ". " + section.description + "\\nSPECIALIST OPERATING INSTRUCTIONS: " + JarvisSections.systemInstruction(sectionId) + "\n\n") } }
                         append("RECENT CONVERSATION:\n")
                         append(messages.takeLast(20).joinToString("\n"))
                     }
