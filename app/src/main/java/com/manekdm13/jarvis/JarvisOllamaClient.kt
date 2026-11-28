@@ -111,8 +111,8 @@ internal object JarvisOllamaClient {
     private fun open(baseUrl: String, path: String, method: String, timeoutMs: Int): HttpURLConnection {
         val normalized = baseUrl.trim().trimEnd('/')
         val url = URL(normalized + path)
-        require(url.protocol == "https" || (url.protocol == "http" && isPrivateHost(url.host))) {
-            "Use HTTPS, or HTTP only for a private LAN Ollama server."
+        require(url.protocol == "https") {
+            "Use an HTTPS Ollama endpoint. JARVIS keeps Android cleartext traffic disabled to protect your device and prompts."
         }
         return (url.openConnection() as HttpURLConnection).apply {
             requestMethod = method
@@ -122,9 +122,4 @@ internal object JarvisOllamaClient {
         }
     }
 
-    private fun isPrivateHost(host: String): Boolean {
-        val value = host.lowercase()
-        return value == "localhost" || value == "127.0.0.1" || value.startsWith("192.168.") ||
-            value.startsWith("10.") || value.startsWith("172.16.") || value.endsWith(".local")
-    }
 }
