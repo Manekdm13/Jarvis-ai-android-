@@ -4,6 +4,8 @@ import android.content.Context
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.performScrollTo
+import androidx.compose.ui.test.performClick
 import androidx.test.platform.app.InstrumentationRegistry
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -19,7 +21,9 @@ class JarvisLaunchTest {
     @Test
     fun launchShowsAssistantAndApprovalPolicy() {
         composeRule.onNodeWithText("J.A.R.V.I.S").assertIsDisplayed()
-        composeRule.onNodeWithText("Your assistant is ready").assertIsDisplayed()
+        composeRule.onNodeWithText("One assistant for conversation, files, research and phone actions.").assertIsDisplayed()
+        composeRule.onNodeWithText("Open conversation  →").performScrollTo().performClick()
+        composeRule.waitForIdle()
         composeRule.onNodeWithText("Message your assistant…").assertIsDisplayed()
         composeRule.onNodeWithText("Send  ➤").assertIsDisplayed()
     }
