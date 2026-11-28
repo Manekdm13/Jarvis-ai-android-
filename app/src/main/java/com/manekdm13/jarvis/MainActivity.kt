@@ -436,7 +436,7 @@ private fun JarvisApp(
                 )
         ) {
             Column(
-                modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp, vertical = 14.dp).then(if (selectedTab == "home" || selectedTab == "settings" || selectedTab == "library" || selectedTab == "modules" || selectedTab == "agent") Modifier.verticalScroll(rememberScrollState()) else Modifier),
+                modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp, vertical = 14.dp).then(if (selectedTab == "home" || selectedTab == "settings" || selectedTab == "library" || selectedTab == "modules" || selectedTab == "section" || selectedTab == "agent") Modifier.verticalScroll(rememberScrollState()) else Modifier),
                 verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
                 Row(
@@ -566,7 +566,55 @@ private fun JarvisApp(
                     }
                 }
 
-                if (selectedTab == "modules") { Text("JARVIS 3.0 • 21 SYSTEM SECTIONS", color = Color(0xFF78DDE8), style = MaterialTheme.typography.titleMedium); Text("One central AI brain. Shared memory. Permission-gated actions. Planned sections are not yet fully connected.", color = Color(0xFF9DB0C7), style = MaterialTheme.typography.bodySmall); JarvisSections.all.forEach { section -> Card(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(16.dp), colors = androidx.compose.material3.CardDefaults.cardColors(containerColor = Color(0xFF111F32))) { Row(modifier = Modifier.fillMaxWidth().padding(13.dp), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) { Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) { Text(section.name, color = Color(0xFFEAF4FF), style = MaterialTheme.typography.titleSmall); Text(section.description, color = Color(0xFF9DB0C7), style = MaterialTheme.typography.bodySmall); Text(if (section.status == SectionStatus.FOUNDATION) "FOUNDATION AVAILABLE" else "PLANNED • CENTRAL BRAIN ROUTING", color = if (section.status == SectionStatus.FOUNDATION) Color(0xFF78E0C2) else Color(0xFFFFD28B), style = MaterialTheme.typography.labelSmall) }; TextButton(onClick = { activeSectionId = section.id; selectedTab = "chat"; input = "Open the " + section.name + " section. " + section.description + " Tell me what you can do now and what still needs implementation." }) { Text("Open") } } } } }
+                if (selectedTab == "modules") {
+                    Text("JARVIS 3.0 • 21 SYSTEM SECTIONS", color = Color(0xFF78DDE8), style = MaterialTheme.typography.titleMedium)
+                    Text("Choose a specialist workspace. Each section has its own screen and tailored actions; advanced integrations are labelled honestly.", color = Color(0xFF9DB0C7), style = MaterialTheme.typography.bodySmall)
+                    JarvisSections.all.forEachIndexed { index, section ->
+                        Card(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(18.dp), colors = androidx.compose.material3.CardDefaults.cardColors(containerColor = Color(0xFF111F32))) {
+                            Row(modifier = Modifier.fillMaxWidth().padding(14.dp), horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
+                                Surface(shape = RoundedCornerShape(12.dp), color = Color(0xFF18354A)) {
+                                    Text(String.format(Locale.US, "%02d", index + 1), modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp), color = Color(0xFF78DDE8), style = MaterialTheme.typography.titleSmall)
+                                }
+                                Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                                    Text(section.name, color = Color(0xFFEAF4FF), style = MaterialTheme.typography.titleSmall)
+                                    Text(section.description, color = Color(0xFF9DB0C7), style = MaterialTheme.typography.bodySmall)
+                                    Text(if (section.status == SectionStatus.FOUNDATION) "CONNECTED FOUNDATION" else "SPECIALIST WORKSPACE • INTEGRATION IN PROGRESS", color = if (section.status == SectionStatus.FOUNDATION) Color(0xFF78E0C2) else Color(0xFFFFD28B), style = MaterialTheme.typography.labelSmall)
+                                }
+                                TextButton(onClick = { activeSectionId = section.id; selectedTab = "section" }) { Text("Open") }
+                            }
+                        }
+                    }
+                }
+
+                if (selectedTab == "section") {
+                    val section = activeSectionId?.let { JarvisSections.find(it) }
+                    if (section == null) {
+                        Text("Choose a section from the 21-section hub.", color = Color(0xFF9DB0C7))
+                        OutlinedButton(onClick = { selectedTab = "modules" }) { Text("Back to sections") }
+                    } else {
+                        OutlinedButton(onClick = { selectedTab = "modules" }, shape = RoundedCornerShape(14.dp)) { Text("← All 21 sections") }
+                        Card(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(24.dp), colors = androidx.compose.material3.CardDefaults.cardColors(containerColor = Color(0xFF11243A))) {
+                            Column(Modifier.fillMaxWidth().padding(18.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                                Text("SPECIALIST WORKSPACE", color = Color(0xFF78DDE8), style = MaterialTheme.typography.labelSmall)
+                                Text(section.name, color = Color(0xFFEAF4FF), style = MaterialTheme.typography.headlineSmall)
+                                Text(section.description, color = Color(0xFFB5C7D9), style = MaterialTheme.typography.bodyMedium)
+                                Surface(shape = RoundedCornerShape(50.dp), color = if (section.status == SectionStatus.FOUNDATION) Color(0xFF123D39) else Color(0xFF493719)) {
+                                    Text(if (section.status == SectionStatus.FOUNDATION) "FOUNDATION CONNECTED" else "WORKSPACE READY • ADVANCED INTEGRATIONS STILL IN PROGRESS", modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp), color = if (section.status == SectionStatus.FOUNDATION) Color(0xFF78E0C2) else Color(0xFFFFD28B), style = MaterialTheme.typography.labelSmall)
+                                }
+                                Text("QUICK ACTIONS", color = Color(0xFF78DDE8), style = MaterialTheme.typography.labelMedium)
+                                JarvisSections.actions(section.id).forEach { action ->
+                                    OutlinedButton(onClick = { selectedTab = "chat"; input = action }, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(14.dp)) {
+                                        Text(action, modifier = Modifier.fillMaxWidth())
+                                    }
+                                }
+                                Button(onClick = { selectedTab = "chat"; input = "Work in the " + section.name + " section. " + section.description + " Help me with the next practical task." }, modifier = Modifier.fillMaxWidth().height(52.dp), shape = RoundedCornerShape(16.dp)) {
+                                    Text("Continue with JARVIS  →")
+                                }
+                            }
+                        }
+                        Text("Section actions use JARVIS's shared assistant and existing permissions. A screen does not imply that an external service or background automation is already connected.", color = Color(0xFF9DB0C7), style = MaterialTheme.typography.bodySmall)
+                    }
+                }
 
                 Surface(shape = RoundedCornerShape(20.dp), color = Color(0xFF101D2F), modifier = Modifier.fillMaxWidth()) {
                     Row(Modifier.fillMaxWidth().padding(horizontal = 3.dp, vertical = 4.dp), horizontalArrangement = Arrangement.SpaceEvenly, verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
