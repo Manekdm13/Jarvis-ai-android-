@@ -25,7 +25,7 @@ class JarvisIncomeOpportunityTest {
     )
 
     @Test fun estimatesNetHourlyReturnAfterCosts() {
-        assertEquals(8.0, opportunity().estimatedNetHourlyUsd()!!, 0.001)
+        assertEquals(8.0, opportunity().copy(feesUsd = 1.0).estimatedNetHourlyUsd()!!, 0.001)
     }
 
     @Test fun neverAssumesPayoutSupportFromUserWallet() {
