@@ -38,9 +38,9 @@ internal object DocumentTextExtractor {
             if (text.isBlank()) null else "IMAGE ${index + 1}\n$text"
         }
         val limitNotice = if (imageUris.size > MAX_GALLERY_IMAGES) {
-            "\\n\\n[For safety, only the first $MAX_GALLERY_IMAGES selected images were scanned.]"
+            "\n\n[For safety, only the first $MAX_GALLERY_IMAGES selected images were scanned.]"
         } else ""
-        return (pages.joinToString("\\n\\n") + limitNotice).take(MAX_EXTRACTED_CHARS)
+        return (pages.joinToString("\n\n") + limitNotice).take(MAX_EXTRACTED_CHARS)
     }
 
     fun extractPdfText(context: Context, pdfUri: Uri): String {
