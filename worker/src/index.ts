@@ -596,7 +596,7 @@ export default {
     }
 
     return json({ error: "All configured free AI providers are temporarily unavailable.", details: failures }, 502);
-  },,
+  },
 
   async scheduled(_controller: ScheduledController, env: Env, ctx: ExecutionContext): Promise<void> {
     if (!env.JARVIS_KNOWLEDGE) return;
