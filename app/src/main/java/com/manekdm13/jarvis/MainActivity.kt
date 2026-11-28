@@ -683,6 +683,16 @@ private fun JarvisApp(onSpeak: (String) -> Unit) {
                                 singleLine = true,
                                 visualTransformation = PasswordVisualTransformation()
                             )
+                            Text("LOCAL OLLAMA INFERENCE", color = Color(0xFF70DCEB), style = MaterialTheme.typography.labelMedium)
+                            OutlinedTextField(value = ollamaUrl, onValueChange = { ollamaUrl = it; settings.edit().putString("ollama_base_url", it.trim()).apply() }, modifier = Modifier.fillMaxWidth(), label = { Text("Ollama server URL") }, placeholder = { Text("https://your-private-ollama-host") }, singleLine = true)
+                            OutlinedTextField(value = ollamaModel, onValueChange = { ollamaModel = it; settings.edit().putString("ollama_model", it.trim()).apply() }, modifier = Modifier.fillMaxWidth(), label = { Text("Installed Ollama model") }, placeholder = { Text("qwen2.5:3b") }, singleLine = true)
+                            Text("Inference mode: " + inferenceMode.replace("_", " ").uppercase(), color = Color(0xFF9DB5CD))
+                            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                OutlinedButton(onClick = { inferenceMode = when (inferenceMode) { JarvisInferenceRouter.MODE_CLOUD -> JarvisInferenceRouter.MODE_LOCAL_FIRST; JarvisInferenceRouter.MODE_LOCAL_FIRST -> JarvisInferenceRouter.MODE_LOCAL_ONLY; else -> JarvisInferenceRouter.MODE_CLOUD }; settings.edit().putString("ai_inference_mode", inferenceMode).apply() }) { Text("Change mode") }
+                                OutlinedButton(onClick = { allowCloudFallback = !allowCloudFallback; settings.edit().putBoolean("ollama_cloud_fallback", allowCloudFallback).apply() }) { Text(if (allowCloudFallback) "Cloud fallback ON" else "Cloud fallback OFF") }
+                            }
+                            Text("Local-first will not upload your prompt after a local failure unless cloud fallback is enabled. Ollama normally runs on another computer or private server; Android localhost is the phone.", color = Color(0xFF9DB5CD), style = MaterialTheme.typography.bodySmall)
+                            OutlinedButton(onClick = { scope.launch { gatewayTestStatus = withContext(Dispatchers.IO) { runCatching { "Ollama models: " + AiGatewayClient.localModels(ollamaUrl).joinToString { it.name }.ifBlank { "none installed" } }.getOrElse { "Ollama test failed: " + (it.message ?: "unknown error") } } } }, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(14.dp)) { Text("Test Ollama connection") }
                             Text(
                                 "VOICE & SPEAKING",
                                 color = Color(0xFF70DCEB),
