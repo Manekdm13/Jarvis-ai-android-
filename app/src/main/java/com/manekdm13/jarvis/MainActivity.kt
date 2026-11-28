@@ -33,6 +33,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
@@ -464,16 +465,26 @@ private fun JarvisApp(
                             color = Color(0xFF80A5C4)
                         )
                     }
-                    Surface(
-                        shape = CircleShape,
-                        color = Color(0xFF123A3B),
-                        contentColor = Color(0xFF78F0D0)
-                    ) {
-                        Text(
-                            "  ● ONLINE  ",
-                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 7.dp),
-                            style = MaterialTheme.typography.labelSmall
-                        )
+                    Row(verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
+                        Surface(
+                            shape = CircleShape,
+                            color = Color(0xFF123A3B),
+                            contentColor = Color(0xFF78F0D0)
+                        ) {
+                            Text(
+                                "  ● ONLINE  ",
+                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 7.dp),
+                                style = MaterialTheme.typography.labelSmall
+                            )
+                        }
+                        TextButton(
+                            onClick = {
+                                selectedTab = "settings"
+                                showSettings = true
+                            }
+                        ) {
+                            Text("⚙ Settings", color = Color(0xFF77E5EE), style = MaterialTheme.typography.labelMedium)
+                        }
                     }
                 }
 
@@ -677,7 +688,11 @@ private fun JarvisApp(
                 }
 
                 Surface(shape = RoundedCornerShape(20.dp), color = Color(0xFF101D2F), modifier = Modifier.fillMaxWidth()) {
-                    Row(Modifier.fillMaxWidth().padding(horizontal = 3.dp, vertical = 4.dp), horizontalArrangement = Arrangement.SpaceEvenly, verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(horizontal = 3.dp, vertical = 4.dp),
+                        horizontalArrangement = Arrangement.Start,
+                        verticalAlignment = androidx.compose.ui.Alignment.CenterVertically
+                    ) {
                         listOf("home" to "Home", "chat" to "Chat", "modules" to "21 Sections", "agent" to "Agent", "library" to "Library", "tasks" to "Memory", "settings" to "Settings").forEach { (tab, label) ->
                             TextButton(onClick = {
                                 selectedTab = tab
