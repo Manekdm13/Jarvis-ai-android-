@@ -16,6 +16,7 @@ Native Kotlin + Jetpack Compose Android application. The current main-branch app
 - User-directed web research through the authenticated Worker proxy. Cloudflare Browser Run is the default read-only public-page research path; the optional TinyFish integration is a legacy fallback and requires its own Worker secret.
 - User-enabled Android Accessibility Service for explicit screen-text inspection, scrolling, Back/Home navigation, and text-matched taps gated by a one-time in-app approval. This is a limited UI-control bridge, not unrestricted device administration.
 - User-enabled Notification Listener Service that keeps up to 30 recent notification summaries in process memory only; notification contents are surfaced only when the user asks JARVIS to check notifications.
+- Scoped gallery index for images/videos (names, sizes and dates only), plus user-selected folder access through Android's Storage Access Framework. JARVIS can list top-level shared-folder files and read plain-text/JSON files; other document types are opened with their associated Android app.
 - In-app **Check for updates** control. It checks the latest GitHub release, downloads the APK, and opens Android's package installer. Android still requires the owner to approve installation; JARVIS does not silently install updates.
 - Signed release workflow and published [JARVIS v0.2.0 APK](https://github.com/Manekdm13/Jarvis-ai-android-/releases/tag/v0.2.0).
 
