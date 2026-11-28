@@ -42,11 +42,19 @@ internal class JarvisTaskWorker(
         val prefs = applicationContext.getSharedPreferences("jarvis_settings", Context.MODE_PRIVATE)
         val gatewayUrl = prefs.getString("ai_gateway_url", null).orEmpty()
         val token = SecureTokenStore.load(applicationContext)
-        if (gatewayUrl.isBlank() || token.isBlank()) {
+        val ollamaUrl = prefs.getString("ollama_base_url", "").orEmpty()
+        val ollamaModel = prefs.getString("ollama_model", "").orEmpty()
+        val inferenceMode = prefs.getString("ai_inference_mode", JarvisInferenceRouter.MODE_CLOUD)
+            ?: JarvisInferenceRouter.MODE_CLOUD
+        val allowCloudFallback = prefs.getBoolean("ollama_cloud_fallback", false)
+        val localConfigured = ollamaUrl.isNotBlank() && ollamaModel.isNotBlank()
+        val cloudConfigured = gatewayUrl.isNotBlank() && token.isNotBlank()
+        if ((inferenceMode == JarvisInferenceRouter.MODE_CLOUD && !cloudConfigured) ||
+            (inferenceMode != JarvisInferenceRouter.MODE_CLOUD && !localConfigured)) {
             return@withContext Result.failure(
                 Data.Builder()
                     .putString(KEY_TASK_ID, taskId)
-                    .putString(KEY_ERROR, "Configure the AI gateway URL and access token in JARVIS settings.")
+                    .putString(KEY_ERROR, "Configure the selected inference provider in JARVIS Connection settings.")
                     .build()
             )
         }
@@ -129,6 +137,39 @@ internal class JarvisTaskWorker(
             setProgress(Data.Builder().putString(KEY_TASK_ID, taskId)
                 .putString(KEY_STATUS, "Handing objective to JARVIS cloud brain")
                 .putInt(KEY_PROGRESS, 30).build())
+            val routedBrain = runCatching {
+                JarvisInferenceRouter.reply(
+                    mode = inferenceMode,
+                    ollamaUrl = ollamaUrl,
+                    ollamaModel = ollamaModel,
+                    cloud = { AiGatewayClient.runBrainTask(gatewayUrl, token, goal, executionContext) },
+                    local = {
+                        AiGatewayClient.localReply(
+                            ollamaUrl,
+                            ollamaModel,
+                            "You are JARVIS, an autonomous task assistant. Plan the objective, work through it, review your answer for gaps and correct errors. Never claim external actions without verification. Respect approval boundaries. Context: " + executionContext,
+                            goal
+                        )
+                    },
+                    allowCloudFallback = allowCloudFallback
+                )
+            }
+            if (routedBrain.isSuccess) {
+                val routed = routedBrain.getOrThrow()
+                return@withContext Result.success(Data.Builder()
+                    .putString(KEY_TASK_ID, taskId)
+                    .putString(KEY_STATUS, "JARVIS task completed using " + routed.provider)
+                    .putString(KEY_RESULT, routed.text.take(10_000))
+                    .putInt(KEY_PROGRESS, 100)
+                    .build())
+            }
+            if (inferenceMode == JarvisInferenceRouter.MODE_LOCAL_ONLY ||
+                (inferenceMode == JarvisInferenceRouter.MODE_LOCAL_FIRST && !allowCloudFallback)) {
+                return@withContext Result.failure(Data.Builder()
+                    .putString(KEY_TASK_ID, taskId)
+                    .putString(KEY_ERROR, routedBrain.exceptionOrNull()?.message ?: "Local Ollama task failed.")
+                    .build())
+            }
             val cloudBrain = runCatching {
                 AiGatewayClient.runBrainTask(gatewayUrl, token, goal, executionContext)
             }
