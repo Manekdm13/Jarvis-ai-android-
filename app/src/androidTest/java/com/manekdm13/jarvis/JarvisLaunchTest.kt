@@ -128,6 +128,36 @@ class JarvisLaunchTest {
         assertEquals("Clearing must disable profile context", "", profileMemory.loadSaved())
     }
 
+    @Test
+    fun autonomousTaskLedgerPersistsStateAcrossEngineInstances() {
+        val testContext = InstrumentationRegistry.getInstrumentation().targetContext
+        testContext.getSharedPreferences("jarvis_task_ledger", Context.MODE_PRIVATE)
+            .edit().clear().commit()
+
+        val firstEngine = JarvisTaskEngine(testContext)
+        val created = firstEngine.create("Regression: plan a research task", "Persist this note")
+        assertEquals(JarvisTaskStatus.PLANNED, created.status)
+
+        val restoredEngine = JarvisTaskEngine(testContext)
+        val restored = restoredEngine.load().single()
+        assertEquals(created.id, restored.id)
+        assertEquals("Persist this note", restored.notes)
+
+        val waiting = restoredEngine.updateStatus(
+            created.id,
+            JarvisTaskStatus.WAITING_FOR_APPROVAL,
+            "A consequential step needs explicit review"
+        )
+        assertEquals(JarvisTaskStatus.WAITING_FOR_APPROVAL, waiting?.status)
+        assertEquals(
+            JarvisTaskStatus.WAITING_FOR_APPROVAL,
+            JarvisTaskEngine(testContext).load().single().status
+        )
+
+        restoredEngine.delete(created.id)
+        assertTrue(JarvisTaskEngine(testContext).load().isEmpty())
+    }
+
     private fun assertNotNullAndGet(value: String?): String {
         assertNotNull("Encrypted ciphertext should exist after save", value)
         return requireNotNull(value)
