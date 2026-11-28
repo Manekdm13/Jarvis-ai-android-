@@ -167,6 +167,8 @@ private fun JarvisApp(onSpeak: (String) -> Unit) {
     var ollamaModel by remember { mutableStateOf(settings.getString("ollama_model", "") ?: "") }
     var inferenceMode by remember { mutableStateOf(settings.getString("ai_inference_mode", JarvisInferenceRouter.MODE_CLOUD) ?: JarvisInferenceRouter.MODE_CLOUD) }
     var allowCloudFallback by remember { mutableStateOf(settings.getBoolean("ollama_cloud_fallback", false)) }
+    var journalExpanded by remember { mutableStateOf(false) }
+    var journalEntries by remember { mutableStateOf(emptyList<JarvisTaskJournal.Entry>()) }
     var gatewayTestStatus by remember { mutableStateOf("") }
     var isThinking by remember { mutableStateOf(false) }
     var isCheckingUpdate by remember { mutableStateOf(false) }
@@ -706,6 +708,24 @@ private fun JarvisApp(onSpeak: (String) -> Unit) {
                             }
                             Text("Local-first will not upload your prompt after a local failure unless cloud fallback is enabled. Ollama normally runs on another computer or private server; Android localhost is the phone.", color = Color(0xFF9DB5CD), style = MaterialTheme.typography.bodySmall)
                             OutlinedButton(onClick = { scope.launch { gatewayTestStatus = withContext(Dispatchers.IO) { runCatching { "Ollama models: " + AiGatewayClient.localModels(ollamaUrl).joinToString { it.name }.ifBlank { "none installed" } }.getOrElse { "Ollama test failed: " + (it.message ?: "unknown error") } } } }, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(14.dp)) { Text("Test Ollama connection") }
+                            OutlinedButton(onClick = { journalEntries = JarvisTaskJournal(context).list(); journalExpanded = !journalExpanded }, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(14.dp)) {
+                                Text(if (journalExpanded) "Hide saved task history" else "View saved task history")
+                            }
+                            if (journalExpanded) {
+                                if (journalEntries.isEmpty()) {
+                                    Text("No saved background tasks yet.", color = Color(0xFF9DB5CD))
+                                } else {
+                                    journalEntries.take(8).forEach { entry ->
+                                        Column(modifier = Modifier.fillMaxWidth().padding(vertical = 5.dp)) {
+                                            Text(entry.goal, color = Color.White, style = MaterialTheme.typography.bodyMedium)
+                                            Text(entry.status + " • " + entry.progress + "%", color = Color(0xFF70DCEB), style = MaterialTheme.typography.labelSmall)
+                                            if (entry.result.isNotBlank()) Text(entry.result.take(500), color = Color(0xFF9DB5CD), style = MaterialTheme.typography.bodySmall)
+                                            if (entry.error.isNotBlank()) Text(entry.error, color = Color(0xFFFFA0A0), style = MaterialTheme.typography.bodySmall)
+                                        }
+                                        HorizontalDivider(color = Color(0xFF263B52))
+                                    }
+                                }
+                            }
                             Text(
                                 "VOICE & SPEAKING",
                                 color = Color(0xFF70DCEB),
