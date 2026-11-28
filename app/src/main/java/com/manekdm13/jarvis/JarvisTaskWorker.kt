@@ -11,6 +11,7 @@ import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.WorkManager
 import androidx.work.WorkerParameters
 import java.util.concurrent.TimeUnit
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
@@ -71,6 +72,8 @@ internal class JarvisTaskWorker(
             val result = AiGatewayClient.reply(gatewayUrl, token, prompt, "")
             engine.updateStatus(taskId, JarvisTaskStatus.COMPLETED, result.take(MAX_STORED_RESULT_CHARS))
             Result.success()
+        } catch (cancelled: CancellationException) {
+            throw cancelled
         } catch (error: Exception) {
             if (runAttemptCount < MAX_RETRIES) {
                 Result.retry()
