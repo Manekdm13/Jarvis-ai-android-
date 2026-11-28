@@ -47,10 +47,17 @@ internal data class JarvisIncomeOpportunity(
     fun validate(): String? {
         if (id.isBlank() || platform.isBlank() || title.isBlank()) return "Opportunity identity is incomplete."
         if (!officialUrl.startsWith("https://")) return "An official HTTPS URL is required."
-        if (grossRewardUsd != null && grossRewardUsd < 0.0) return "Reward cannot be negative."
+        if (grossRewardUsd != null && (!grossRewardUsd.isFinite() || grossRewardUsd < 0.0)) {
+            return "Reward must be finite and cannot be negative."
+        }
         if (estimatedMinutes != null && estimatedMinutes <= 0) return "Estimated time must be positive."
-        if (feesUsd < 0.0 || otherCostsUsd < 0.0) return "Costs cannot be negative."
-        if (withdrawalMinimumUsd != null && withdrawalMinimumUsd < 0.0) return "Withdrawal minimum cannot be negative."
+        if (!feesUsd.isFinite() || !otherCostsUsd.isFinite() || feesUsd < 0.0 || otherCostsUsd < 0.0) {
+            return "Costs must be finite and cannot be negative."
+        }
+        if (withdrawalMinimumUsd != null &&
+            (!withdrawalMinimumUsd.isFinite() || withdrawalMinimumUsd < 0.0)) {
+            return "Withdrawal minimum must be finite and cannot be negative."
+        }
         return null
     }
 
