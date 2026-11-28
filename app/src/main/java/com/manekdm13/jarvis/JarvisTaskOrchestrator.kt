@@ -92,8 +92,22 @@ internal object JarvisTaskOrchestrator {
             already present. Do not claim external actions, submissions, messages,
             purchases, or device changes occurred unless there is explicit confirmation.
             Separate verified results from assumptions. Do not reveal chain-of-thought.
-            Return the final useful result, not a description of your private reasoning.
+            Start with [JARVIS_REVIEW: COMPLETE] if the goal is satisfied, or
+            [JARVIS_REVIEW: NEEDS_REPAIR] if a material gap remains repairable with available information.
+            If repair is needed, state the concrete gap. Then return the final useful result.
         """.trimIndent()
     }
 
+    fun repairPrompt(goal: String, review: String): String = """
+        You are JARVIS performing one final bounded repair attempt.
+        User's original goal: $goal
+        Independent review and identified gaps:
+        ${review.take(7_000)}
+        Repair the identified gaps using only available information and tools.
+        Do not invent evidence or claim external actions. State any unfixable blocker.
+        Return the corrected useful deliverable. Do not reveal private chain-of-thought.
+    """.trimIndent()
+
+    fun needsRepair(review: String): Boolean =
+        review.contains("[JARVIS_REVIEW: NEEDS_REPAIR]", ignoreCase = true)
 }
