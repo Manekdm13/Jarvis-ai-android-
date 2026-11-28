@@ -9,11 +9,11 @@ android {
     compileSdk = 36
 
     defaultConfig {
-        applicationId = "com.manekdm13.jarvis.preview"
+        applicationId = "com.manekdm13.jarvis.master"
         minSdk = 26
         targetSdk = 36
         val versionParts = providers.gradleProperty("jarvisVersionName")
-            .orElse("0.4.0").get().split(".")
+            .orElse("1.0.0").get().split(".")
         versionCode = (versionParts.getOrElse(0) { "0" }.toIntOrNull() ?: 0) * 10000 +
             (versionParts.getOrElse(1) { "0" }.toIntOrNull() ?: 0) * 100 +
             (versionParts.getOrElse(2) { "0" }.toIntOrNull() ?: 0)
