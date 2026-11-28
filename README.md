@@ -14,16 +14,17 @@ Native Kotlin + Jetpack Compose Android application. The current main-branch app
 - Device-local conversation history encrypted with Android Keystore, with a searchable **Remember** screen.
 - Opt-in encrypted personal profile. The suggested profile is display-only until the owner explicitly saves it; only the saved profile is included in online chat context. It can be edited or cleared.
 - User-directed web research through the authenticated Worker proxy. Cloudflare Browser Run is the default read-only public-page research path; the optional TinyFish integration is a legacy fallback and requires its own Worker secret.
-- Starter Android phone actions prepared as intents and gated by a separate, one-time in-app approval. This is not general screen automation.
+- User-enabled Android Accessibility Service for explicit screen-text inspection, scrolling, Back/Home navigation, and text-matched taps gated by a one-time in-app approval. This is a limited UI-control bridge, not unrestricted device administration.
+- User-enabled Notification Listener Service that keeps up to 30 recent notification summaries in process memory only; notification contents are surfaced only when the user asks JARVIS to check notifications.
 - In-app **Check for updates** control. It checks the latest GitHub release, downloads the APK, and opens Android's package installer. Android still requires the owner to approve installation; JARVIS does not silently install updates.
 - Signed release workflow and published [JARVIS v0.2.0 APK](https://github.com/Manekdm13/Jarvis-ai-android-/releases/tag/v0.2.0).
 
 ## Current limitations / not implemented on main
 
 - **Offline on-device AI:** not implemented. Cloudflare Workers AI is an online service and is not an offline fallback. The Redmi Note 13 4G model/runtime plan is still in draft PR [#19](https://github.com/Manekdm13/Jarvis-ai-android-/pull/19).
-- **Full phone control:** no general-purpose AccessibilityService automation for reading screen elements, tapping, scrolling, or typing.
+- **Full phone control:** limited accessibility actions are implemented (screen text, scroll, Back/Home, approved text-matched taps). General autonomous multi-step app workflows, robust typing, gesture automation, and per-app integrations are not yet implemented.
 - Wake-word / always-listening service.
-- Notification listener and notification summarisation.
+- Notification summarisation is currently a local digest; AI-powered contextual notification reasoning and reply workflows are not yet implemented.
 - Complete local reminder/background task manager.
 - Scholarship application workspace.
 - GeoGuessr screenshot analysis and geography training.
@@ -37,7 +38,7 @@ See [worker/README.md](worker/README.md) for Cloudflare deployment, provider sec
 ## Permission and approval policy
 
 - JARVIS does not grant Android permissions to itself.
-- Accessibility, notification access, microphone, and other special access must be explicitly enabled by the owner in Android settings after an in-app explanation.
+- Accessibility and notification access must be explicitly enabled by the owner from JARVIS Connection settings → Device Access. Android owns these special-access grants.
 - Every supported consequential phone action requires a separate **Approve once** tap; **Deny** cancels it.
 - Sensitive actions such as sending, posting, deleting, purchases, changing security settings, or transmitting personal data must receive a fresh confirmation immediately before execution.
 - No permission bypass, silent privilege escalation, hidden recording, or covert background control.
