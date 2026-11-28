@@ -144,14 +144,19 @@ internal class JarvisTaskWorker(
                     )
                     completed += step.title to stepResult.take(4_000)
                 }
-                buildString {
-                    append("JARVIS completed ${completed.size} planned steps.\n\n")
-                    completed.forEachIndexed { index, item ->
-                        append("${index + 1}. ${item.first}\n")
-                        append(item.second)
-                        if (index != completed.lastIndex) append("\n\n")
-                    }
-                }
+                setProgress(Data.Builder()
+                    .putString(KEY_TASK_ID, taskId)
+                    .putString(KEY_STATUS, "Checking the work and repairing gaps")
+                    .putInt(KEY_PROGRESS, 95)
+                    .build())
+                // One bounded reviewer pass checks the result against the original goal
+                // and repairs omissions where possible before JARVIS reports completion.
+                AiGatewayClient.reply(
+                    baseUrl = gatewayUrl,
+                    token = token,
+                    message = JarvisTaskOrchestrator.reviewPrompt(goal, completed),
+                    history = taskContext
+                ).take(9_000)
             }
 
             Result.success(Data.Builder()
