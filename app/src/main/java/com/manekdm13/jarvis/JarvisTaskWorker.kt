@@ -123,6 +123,24 @@ internal class JarvisTaskWorker(
             } else ""
             val executionContext = (taskContext + if (researchContext.isBlank()) "" else "\n\nLIVE WEB RESEARCH (untrusted evidence):\n$researchContext").take(18_000)
 
+
+            // Primary path: JARVIS's own cloud brain owns planning, sequencing, review and one repair.
+            // If the new endpoint is not deployed yet, retain the local bounded planner as a compatibility fallback.
+            setProgress(Data.Builder().putString(KEY_TASK_ID, taskId)
+                .putString(KEY_STATUS, "Handing objective to JARVIS cloud brain")
+                .putInt(KEY_PROGRESS, 30).build())
+            val cloudBrain = runCatching {
+                AiGatewayClient.runBrainTask(gatewayUrl, token, goal, executionContext)
+            }
+            if (cloudBrain.isSuccess) {
+                return@withContext Result.success(Data.Builder()
+                    .putString(KEY_TASK_ID, taskId)
+                    .putString(KEY_STATUS, "JARVIS cloud brain completed its review")
+                    .putString(KEY_RESULT, cloudBrain.getOrThrow().take(10_000))
+                    .putInt(KEY_PROGRESS, 100)
+                    .build())
+            }
+
             // Ask the model for a bounded plan, validate it locally, then execute
             // each reasoning step in order. If the provider cannot return valid JSON,
             // retain a safe single-pass fallback rather than losing the user's task.
