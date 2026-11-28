@@ -186,6 +186,7 @@ class JarvisLaunchTest {
         val sections = JarvisSections.all
         assertEquals("JARVIS must expose exactly 21 specialist sections", 21, sections.size)
         assertEquals("Every section ID must be unique", sections.size, sections.map { it.id }.toSet().size)
+        assertEquals("All 14 non-foundation areas must be active AI specialist workspaces", 14, sections.count { it.status == SectionStatus.AI_WORKSPACE })
 
         sections.forEach { section ->
             assertTrue("Missing actions for ${section.id}", JarvisSections.actions(section.id).size >= 3)
