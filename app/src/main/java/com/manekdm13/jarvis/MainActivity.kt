@@ -163,6 +163,10 @@ private fun JarvisApp(onSpeak: (String) -> Unit) {
         )
     }
     var gatewayToken by remember { mutableStateOf(SecureTokenStore.load(context)) }
+    var ollamaUrl by remember { mutableStateOf(settings.getString("ollama_base_url", "") ?: "") }
+    var ollamaModel by remember { mutableStateOf(settings.getString("ollama_model", "") ?: "") }
+    var inferenceMode by remember { mutableStateOf(settings.getString("ai_inference_mode", JarvisInferenceRouter.MODE_CLOUD) ?: JarvisInferenceRouter.MODE_CLOUD) }
+    var allowCloudFallback by remember { mutableStateOf(settings.getBoolean("ollama_cloud_fallback", false)) }
     var gatewayTestStatus by remember { mutableStateOf("") }
     var isThinking by remember { mutableStateOf(false) }
     var isCheckingUpdate by remember { mutableStateOf(false) }
