@@ -6,11 +6,16 @@ import android.content.pm.PackageManager
 import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
+import android.os.Handler
+import android.os.Looper
 import android.os.Build
 import android.provider.AlarmClock
 import android.provider.MediaStore
 import android.provider.Settings
 import android.speech.RecognizerIntent
+import android.speech.SpeechRecognizer
+import android.speech.RecognitionListener
+import android.speech.tts.UtteranceProgressListener
 import android.speech.tts.TextToSpeech
 import android.widget.Toast
 import androidx.activity.ComponentActivity
@@ -75,20 +80,105 @@ private data class PendingPhoneAction(
 
 class MainActivity : ComponentActivity() {
     private var tts: TextToSpeech? = null
+    private var speechRecognizer: SpeechRecognizer? = null
+    private var voiceSessionActive = false
+    private var voiceTranscript: ((String) -> Unit)? = null
+    private val mainHandler = Handler(Looper.getMainLooper())
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         tts = TextToSpeech(this) { status ->
-            if (status == TextToSpeech.SUCCESS) tts?.language = Locale.US
+            if (status == TextToSpeech.SUCCESS) {
+                tts?.language = Locale.US
+                tts?.setOnUtteranceProgressListener(object : UtteranceProgressListener() {
+                    override fun onStart(utteranceId: String?) = Unit
+                    override fun onDone(utteranceId: String?) {
+                        mainHandler.post { if (voiceSessionActive) beginVoiceListening() }
+                    }
+                    override fun onError(utteranceId: String?) {
+                        mainHandler.post { if (voiceSessionActive) beginVoiceListening() }
+                    }
+                })
+            }
         }
-        setContent { JarvisApp(onSpeak = { speak(it) }) }
+        setContent {
+            JarvisApp(
+                onSpeak = { speak(it) },
+                onStartVoice = { callback -> startVoiceSession(callback) },
+                onStopVoice = { stopVoiceSession() }
+            )
+        }
     }
 
     private fun speak(message: String) {
         tts?.speak(message, TextToSpeech.QUEUE_FLUSH, null, "jarvis_reply")
     }
 
+    private fun startVoiceSession(callback: (String) -> Unit) {
+        voiceTranscript = callback
+        voiceSessionActive = true
+        beginVoiceListening()
+    }
+
+    private fun beginVoiceListening() {
+        if (!voiceSessionActive) return
+        if (checkSelfPermission(Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
+            voiceSessionActive = false
+            return
+        }
+        if (!SpeechRecognizer.isRecognitionAvailable(this)) {
+            voiceSessionActive = false
+            Toast.makeText(this, "Speech recognition is unavailable on this device.", Toast.LENGTH_LONG).show()
+            return
+        }
+        if (speechRecognizer == null) {
+            speechRecognizer = if (Build.VERSION.SDK_INT >= 31 &&
+                SpeechRecognizer.isOnDeviceRecognitionAvailable(this)
+            ) SpeechRecognizer.createOnDeviceSpeechRecognizer(this)
+            else SpeechRecognizer.createSpeechRecognizer(this)
+            speechRecognizer?.setRecognitionListener(object : RecognitionListener {
+                override fun onReadyForSpeech(params: Bundle?) = Unit
+                override fun onBeginningOfSpeech() = Unit
+                override fun onRmsChanged(rmsdB: Float) = Unit
+                override fun onBufferReceived(buffer: ByteArray?) = Unit
+                override fun onEndOfSpeech() = Unit
+                override fun onEvent(eventType: Int, params: Bundle?) = Unit
+                override fun onPartialResults(partialResults: Bundle?) = Unit
+                override fun onResults(results: Bundle?) {
+                    val spoken = results?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)?.firstOrNull()
+                    if (!spoken.isNullOrBlank()) voiceTranscript?.invoke(spoken)
+                    else mainHandler.postDelayed({ beginVoiceListening() }, 350)
+                }
+                override fun onError(error: Int) {
+                    if (voiceSessionActive && error != SpeechRecognizer.ERROR_INSUFFICIENT_PERMISSIONS) {
+                        mainHandler.postDelayed({ beginVoiceListening() }, 700)
+                    } else {
+                        voiceSessionActive = false
+                    }
+                }
+            })
+        }
+        val intent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
+            putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
+            putExtra(RecognizerIntent.EXTRA_LANGUAGE, Locale.getDefault().toLanguageTag())
+            putExtra(RecognizerIntent.EXTRA_PARTIAL_RESULTS, true)
+            putExtra(RecognizerIntent.EXTRA_PREFER_OFFLINE, true)
+        }
+        runCatching { speechRecognizer?.startListening(intent) }
+            .onFailure { mainHandler.postDelayed({ beginVoiceListening() }, 900) }
+    }
+
+    private fun stopVoiceSession() {
+        voiceSessionActive = false
+        voiceTranscript = null
+        runCatching { speechRecognizer?.stopListening() }
+        speechRecognizer?.destroy()
+        speechRecognizer = null
+        tts?.stop()
+    }
+
     override fun onDestroy() {
+        stopVoiceSession()
         tts?.stop()
         tts?.shutdown()
         tts = null
@@ -97,7 +187,11 @@ class MainActivity : ComponentActivity() {
 }
 
 @Composable
-private fun JarvisApp(onSpeak: (String) -> Unit) {
+private fun JarvisApp(
+    onSpeak: (String) -> Unit,
+    onStartVoice: ((String) -> Unit) -> Unit,
+    onStopVoice: () -> Unit
+) {
     val context = LocalContext.current
     val clipboardManager = LocalClipboardManager.current
     val memory = remember(context) { ConversationMemory(context.applicationContext) }
@@ -132,6 +226,8 @@ private fun JarvisApp(onSpeak: (String) -> Unit) {
     val scope = rememberCoroutineScope()
     var pendingAction by remember { mutableStateOf<PendingPhoneAction?>(null) }
     var pendingTapTarget by remember { mutableStateOf<String?>(null) }
+    var voiceSessionActive by remember { mutableStateOf(false) }
+    var voiceTranscriptHandler by remember { mutableStateOf<(String) -> Unit>({}) }
     var galleryAccessGranted by remember { mutableStateOf(false) }
     var libraryStatus by remember { mutableStateOf("") }
     var messages by remember(memory) {
@@ -161,6 +257,17 @@ private fun JarvisApp(onSpeak: (String) -> Unit) {
             ?.getStringArrayListExtra(RecognizerIntent.EXTRA_RESULTS)
             ?.firstOrNull()
         if (!spoken.isNullOrBlank()) input = spoken
+    }
+
+    val microphonePermissionLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { granted ->
+        if (granted) {
+            voiceSessionActive = true
+            onStartVoice(voiceTranscriptHandler)
+        } else {
+            record("voice call", "Microphone permission was not granted.")
+        }
     }
 
     val galleryPermissionLauncher = rememberLauncherForActivityResult(
@@ -292,6 +399,8 @@ private fun JarvisApp(onSpeak: (String) -> Unit) {
             }
         }
     }
+
+    voiceTranscriptHandler = { spoken -> input = spoken; sendMessage() }
 
     val jarvisColors = darkColorScheme(
         primary = Color(0xFF65E6F2),
@@ -692,16 +801,19 @@ private fun JarvisApp(onSpeak: (String) -> Unit) {
                         Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                             OutlinedButton(
                                 onClick = {
-                                    val intent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
-                                        putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
-                                        putExtra(RecognizerIntent.EXTRA_LANGUAGE, Locale.getDefault())
-                                        putExtra(RecognizerIntent.EXTRA_PROMPT, "Speak to JARVIS")
+                                    if (voiceSessionActive) {
+                                        onStopVoice()
+                                        voiceSessionActive = false
+                                    } else if (context.checkSelfPermission(Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED) {
+                                        voiceSessionActive = true
+                                        onStartVoice(voiceTranscriptHandler)
+                                    } else {
+                                        microphonePermissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
                                     }
-                                    runCatching { voiceLauncher.launch(intent) }
                                 },
                                 modifier = Modifier.weight(1f),
                                 shape = RoundedCornerShape(14.dp)
-                            ) { Text("🎙  Speak") }
+                            ) { Text(if (voiceSessionActive) "End voice call" else "🎙  Start voice call") }
                             Button(
                                 onClick = { sendMessage() },
                                 modifier = Modifier.weight(1f),
