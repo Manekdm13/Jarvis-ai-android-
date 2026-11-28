@@ -43,4 +43,25 @@ class JarvisActionProtocolTest {
             assertFalse("$it must require review", JarvisActionPolicy.canAutoExecute(it))
         }
     }
+
+    @Test fun modelCannotDowngradePrivateOrUnknownActions() {
+        listOf(
+            "read screen", "tap Send", "type my password", "share my documents",
+            "send whatsapp my bank details", "delete all files", "transfer 5000",
+            "change security settings", "run arbitrary shell command", ""
+        ).forEach {
+            assertFalse("$it must remain gated", JarvisActionPolicy.canAutoExecute(it))
+            assertFalse("$it must not be classified as routine", JarvisActionPolicy.classify(it) == JarvisActionRisk.ROUTINE_REVERSIBLE)
+        }
+    }
+
+    @Test fun riskClassifierSeparatesNavigationFromSensitiveActions() {
+        assertEquals(JarvisActionRisk.ROUTINE_REVERSIBLE, JarvisActionPolicy.classify("open Chrome"))
+        assertEquals(JarvisActionRisk.EXTERNAL_NAVIGATION, JarvisActionPolicy.classify("search food safety"))
+        assertEquals(JarvisActionRisk.PRIVATE_DATA_ACCESS, JarvisActionPolicy.classify("read screen"))
+        assertEquals(JarvisActionRisk.USER_INPUT, JarvisActionPolicy.classify("type hello"))
+        assertEquals(JarvisActionRisk.EXTERNAL_TRANSMISSION, JarvisActionPolicy.classify("send whatsapp hello"))
+        assertEquals(JarvisActionRisk.IRREVERSIBLE_OR_FINANCIAL, JarvisActionPolicy.classify("delete all files"))
+        assertEquals(JarvisActionRisk.UNKNOWN, JarvisActionPolicy.classify("run shell"))
+    }
 }
