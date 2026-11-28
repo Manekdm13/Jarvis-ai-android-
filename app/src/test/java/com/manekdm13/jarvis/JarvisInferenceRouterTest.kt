@@ -64,4 +64,11 @@ class JarvisInferenceRouterTest {
         assertEquals("ollama", result.provider)
         assertTrue(result.fallbackUsed)
     }
+    @Test fun localOnlyDoesNotPermitCloudResearch() {
+        assertFalse(JarvisInferenceRouter.mayUseCloudResearch(JarvisInferenceRouter.MODE_LOCAL_ONLY, false))
+        assertFalse(JarvisInferenceRouter.mayUseCloudResearch(JarvisInferenceRouter.MODE_LOCAL_FIRST, false))
+        assertTrue(JarvisInferenceRouter.mayUseCloudResearch(JarvisInferenceRouter.MODE_LOCAL_FIRST, true))
+        assertTrue(JarvisInferenceRouter.mayUseCloudResearch(JarvisInferenceRouter.MODE_CLOUD, false))
+    }
+
 }
