@@ -13,7 +13,8 @@ class JarvisTaskIntentTest {
             "Please prepare my application checklist",
             "Can you solve this spreadsheet problem",
             "I want you to organize my research notes",
-            "Take care of finding suitable internships"
+            "Take care of finding suitable internships",
+            "I need you to find paid internships in Pakistan"
         ).forEach { assertTrue(it, JarvisTaskIntent.isAutonomousTaskRequest(it)) }
     }
 
