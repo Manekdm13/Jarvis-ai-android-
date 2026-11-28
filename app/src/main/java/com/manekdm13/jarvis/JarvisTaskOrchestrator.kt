@@ -67,4 +67,33 @@ internal object JarvisTaskOrchestrator {
             Do not reveal private chain-of-thought.
         """.trimIndent()
     }
+
+    /**
+     * Independent quality-control pass over completed work. This is a bounded
+     * verification/repair request, not permission to perform external actions.
+     */
+    fun reviewPrompt(goal: String, completed: List<Pair<String, String>>): String {
+        val evidence = completed.joinToString("\\n\\n") { (title, result) ->
+            "STEP: $title\\nOUTPUT: ${result.take(3_000)}"
+        }
+        return """
+            You are JARVIS performing a final quality-control and recovery pass.
+            Original user goal: $goal
+            Work produced so far:
+            $evidence
+
+            Independently check whether the outputs actually satisfy the user's goal.
+            Look for missing requirements, contradictions, arithmetic or logic errors,
+            unsupported claims, unsafe assumptions, and steps that stopped prematurely.
+            If a gap can be repaired using the information and tools already available
+            in this conversation, repair it now and provide the corrected deliverable.
+            If it cannot be repaired, explain the precise blocker and the smallest
+            user input or permission needed. Do not ask the user to repeat information
+            already present. Do not claim external actions, submissions, messages,
+            purchases, or device changes occurred unless there is explicit confirmation.
+            Separate verified results from assumptions. Do not reveal chain-of-thought.
+            Return the final useful result, not a description of your private reasoning.
+        """.trimIndent()
+    }
+
 }
